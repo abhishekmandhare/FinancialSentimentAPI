@@ -51,7 +51,12 @@ public static class DependencyInjection
 
         services.AddSingleton<IArticleQueue, InMemoryArticleQueue>();
 
-        services.AddHttpClient<INewsSourceService, RssNewsSourceService>();
+        services.AddHttpClient<INewsSourceService, RssNewsSourceService>(client =>
+        {
+            // Yahoo Finance returns 429 for requests without a browser User-Agent
+            client.DefaultRequestHeaders.UserAgent.ParseAdd(
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+        });
 
         services.AddHostedService<SentimentIngestionWorker>();
         services.AddHostedService<SentimentAnalysisWorker>();

@@ -10,11 +10,16 @@ namespace Application.Features.Sentiment.Commands.AnalyzeSentiment;
 /// Orchestrates the AnalyzeSentiment use case:
 ///   1. Build domain value objects (fail fast on invalid input)
 ///   2. Call AI service (infrastructure, via interface)
-///   3. Create domain entity (validates all invariants, raises domain event)
+///   3. Create domain entity (validates all invariants, raises domain event internally)
 ///   4. Persist (infrastructure, via interface)
-///   5. Dispatch domain events collected by the entity
+///   5. Clear domain events (collected by entity; future: dispatch via dedicated dispatcher)
 ///   6. Publish application notification (for side effects: logging, webhooks, etc.)
 ///   7. Return response DTO
+///
+/// Note on domain events: IDomainEvent lives in Domain (no MediatR dependency).
+/// To dispatch domain events through MediatR they need a wrapper that implements INotification.
+/// For now we clear them and use the application-level SentimentAnalysisCreatedNotification.
+/// Future: add a DomainEventDispatcher that wraps domain events in INotification adapters.
 ///
 /// The handler knows WHAT to do. It has no idea HOW persistence or AI works.
 /// That is Dependency Inversion in practice.
@@ -44,11 +49,9 @@ public class AnalyzeSentimentCommandHandler(
 
         await repository.AddAsync(analysis, ct);
 
-        // Dispatch domain events raised inside the entity during Create().
-        // Done after persistence so events reflect committed state.
-        foreach (var domainEvent in analysis.DomainEvents)
-            await publisher.Publish(domainEvent, ct);
-
+        // Domain events are collected by the entity but not dispatched through MediatR directly
+        // because IDomainEvent doesn't implement INotification (Domain has no MediatR dependency).
+        // The application notification below handles cross-cutting side effects instead.
         analysis.ClearDomainEvents();
 
         // Application-level notification for cross-cutting side effects.
