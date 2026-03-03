@@ -1,0 +1,29 @@
+## .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+*.db
+*.db-shm
+*.db-wal
+
+## User secrets (never commit — use environment variables in production)
+secrets.json
+
+## Rider
+.idea/
+
+## VS Code
+.vscode/
+
+## Claude Code local settings (machine-specific permissions)
+.claude/
+
+## OS
+.DS_Store
+Thumbs.db
+
+## Build output
+publish/
+artifacts/
