@@ -27,22 +27,37 @@ public static class DependencyInjection
         // --- AI Service (switchable via config) ---
         var aiProvider = configuration["AI:Provider"] ?? "Mock";
 
-        if (aiProvider.Equals("Anthropic", StringComparison.OrdinalIgnoreCase))
+        switch (aiProvider.ToLowerInvariant())
         {
-            services.AddOptions<AnthropicOptions>()
-                .Bind(configuration.GetSection(AnthropicOptions.SectionName))
-                .ValidateDataAnnotations()
-                .ValidateOnStart();
+            case "anthropic":
+                services.AddOptions<AnthropicOptions>()
+                    .Bind(configuration.GetSection(AnthropicOptions.SectionName))
+                    .ValidateDataAnnotations()
+                    .ValidateOnStart();
 
-            services.AddHttpClient<IAiSentimentService, AnthropicSentimentService>(client =>
-            {
-                var baseUrl = configuration["Anthropic:BaseUrl"] ?? "https://api.anthropic.com/";
-                client.BaseAddress = new Uri(baseUrl);
-            });
-        }
-        else
-        {
-            services.AddSingleton<IAiSentimentService, MockSentimentService>();
+                services.AddHttpClient<IAiSentimentService, AnthropicSentimentService>(client =>
+                {
+                    var baseUrl = configuration["Anthropic:BaseUrl"] ?? "https://api.anthropic.com/";
+                    client.BaseAddress = new Uri(baseUrl);
+                });
+                break;
+
+            case "ollama":
+                services.AddOptions<OllamaOptions>()
+                    .Bind(configuration.GetSection(OllamaOptions.SectionName))
+                    .ValidateDataAnnotations()
+                    .ValidateOnStart();
+
+                services.AddHttpClient<IAiSentimentService, OllamaSentimentService>(client =>
+                {
+                    var baseUrl = configuration["Ollama:BaseUrl"] ?? "http://localhost:11434";
+                    client.BaseAddress = new Uri(baseUrl);
+                });
+                break;
+
+            default:
+                services.AddSingleton<IAiSentimentService, MockSentimentService>();
+                break;
         }
 
         // --- Ingestion Pipeline ---
