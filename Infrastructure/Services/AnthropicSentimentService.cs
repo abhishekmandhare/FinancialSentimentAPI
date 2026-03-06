@@ -10,11 +10,10 @@ namespace Infrastructure.Services;
 
 /// <summary>
 /// Calls the Anthropic Messages API to analyze financial sentiment.
-/// Uses a structured prompt that asks Claude to return JSON only,
-/// keeping the response deterministic and parseable.
-///
-/// The prompt is financial-specific: it instructs Claude to assess sentiment
-/// for the given symbol, not general market sentiment.
+/// Uses prompt caching: the static system prompt (instructions + JSON schema)
+/// is marked with cache_control so Anthropic caches it server-side for 5 minutes.
+/// Cache reads cost ~10% of normal input token price, significantly reducing costs
+/// when processing article bursts (multiple articles analyzed within the cache window).
 /// </summary>
 public class AnthropicSentimentService(
     HttpClient httpClient,
@@ -24,6 +23,21 @@ public class AnthropicSentimentService(
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
+    // Static system prompt — marked for caching. Must be byte-identical on every request
+    // for the cache to hit. Do not interpolate dynamic values into this string.
+    private const string SystemPrompt = """
+        You are a financial analyst specializing in equity sentiment analysis.
+        Focus on: earnings, revenue, guidance, competitive position, management commentary.
+        Ignore general market sentiment unless directly tied to the specified stock symbol.
+
+        Return ONLY valid JSON in this exact format, with no other text:
+        {
+          "score": <float between -1.0 (very negative) and 1.0 (very positive)>,
+          "confidence": <float between 0.0 and 1.0>,
+          "keyReasons": ["<reason 1>", "<reason 2>", "<reason 3>"]
+        }
+        """;
+
     public async Task<AiSentimentResult> AnalyzeAsync(
         string text,
         StockSymbol symbol,
@@ -31,15 +45,26 @@ public class AnthropicSentimentService(
     {
         var opts = options.Value;
 
-        var prompt = BuildPrompt(text, symbol);
-
         var requestBody = new
         {
             model      = opts.Model,
             max_tokens = opts.MaxTokens,
-            messages   = new[]
+            system = new[]
             {
-                new { role = "user", content = prompt }
+                new
+                {
+                    type = "text",
+                    text = SystemPrompt,
+                    cache_control = new { type = "ephemeral" }
+                }
+            },
+            messages = new[]
+            {
+                new
+                {
+                    role    = "user",
+                    content = $"Analyze the sentiment of the following text specifically regarding {symbol.Value}:\n\n{text}"
+                }
             }
         };
 
@@ -53,6 +78,7 @@ public class AnthropicSentimentService(
 
         request.Headers.Add("x-api-key", opts.ApiKey);
         request.Headers.Add("anthropic-version", "2023-06-01");
+        request.Headers.Add("anthropic-beta", "prompt-caching-2024-07-31");
 
         var response = await httpClient.SendAsync(request, ct);
         response.EnsureSuccessStatusCode();
@@ -64,26 +90,22 @@ public class AnthropicSentimentService(
         var content = responseBody.Content?.FirstOrDefault()?.Text
             ?? throw new InvalidOperationException("No text content in Anthropic response.");
 
+        LogCacheUsage(responseBody.Usage);
+
         return ParseSentimentResult(content, opts.Model);
     }
 
-    private static string BuildPrompt(string text, StockSymbol symbol) => $$"""
-        You are a financial analyst specializing in equity sentiment analysis.
+    private void LogCacheUsage(UsageInfo? usage)
+    {
+        if (usage is null) return;
 
-        Analyze the sentiment of the following text specifically regarding {{symbol.Value}}.
-        Focus on: earnings, revenue, guidance, competitive position, management commentary.
-        Ignore general market sentiment unless directly tied to {{symbol.Value}}.
-
-        Text to analyze:
-        {{text}}
-
-        Return ONLY valid JSON in this exact format, with no other text:
-        {
-          "score": <float between -1.0 (very negative) and 1.0 (very positive)>,
-          "confidence": <float between 0.0 and 1.0>,
-          "keyReasons": ["<reason 1>", "<reason 2>", "<reason 3>"]
-        }
-        """;
+        if (usage.CacheReadInputTokens > 0)
+            logger.LogDebug("Prompt cache hit: {CacheRead} cached tokens, {Input} input tokens",
+                usage.CacheReadInputTokens, usage.InputTokens);
+        else
+            logger.LogDebug("Prompt cache miss (write): {CacheWrite} tokens cached, {Input} input tokens",
+                usage.CacheCreationInputTokens, usage.InputTokens);
+    }
 
     private AiSentimentResult ParseSentimentResult(string content, string model)
     {
@@ -110,9 +132,16 @@ public class AnthropicSentimentService(
 
     private record AnthropicResponse(
         List<ContentBlock>? Content,
-        string? Model);
+        string? Model,
+        UsageInfo? Usage);
 
     private record ContentBlock(string? Type, string? Text);
+
+    private record UsageInfo(
+        int InputTokens,
+        int OutputTokens,
+        int CacheCreationInputTokens,
+        int CacheReadInputTokens);
 
     private record SentimentJson(
         double Score,
