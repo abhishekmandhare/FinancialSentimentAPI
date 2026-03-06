@@ -21,17 +21,17 @@ builder.Services.AddOpenApi();
 // so that integration tests can override config values via IWebHostBuilder.UseSetting:
 // reading config inside IOptions.Configure<IConfiguration> is deferred until after
 // all ConfigureAppConfiguration delegates (including test overrides) have been applied.
-builder.Services.AddRateLimiter(options =>
-{
-    options.OnRejected = async (context, cancellationToken) =>
-    {
-        var config = context.HttpContext.RequestServices.GetRequiredService<IConfiguration>();
-        var windowSecs = config.GetValue("RateLimiting:AnalyzeWindowSeconds", 60);
-        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
-        context.HttpContext.Response.Headers["Retry-After"] = windowSecs.ToString();
-        await context.HttpContext.Response.WriteAsync("Too many requests. Please try again later.", cancellationToken);
-    };
-});
+//builder.Services.AddRateLimiter(options =>
+//{
+//    options.OnRejected = async (context, cancellationToken) =>
+//    {
+//        var config = context.HttpContext.RequestServices.GetRequiredService<IConfiguration>();
+//        var windowSecs = config.GetValue("RateLimiting:AnalyzeWindowSeconds", 60);
+//        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+//        context.HttpContext.Response.Headers["Retry-After"] = windowSecs.ToString();
+//        await context.HttpContext.Response.WriteAsync("Too many requests. Please try again later.", cancellationToken);
+//    };
+//});
 
 //builder.Services.AddOptions<RateLimiterOptions>()
 //    .Configure<IConfiguration>((options, config) =>
