@@ -1,0 +1,46 @@
+name: CodeQL Security Scanning
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Run weekly on Monday at 08:00 UTC to catch newly published CVEs
+    - cron: '0 8 * * 1'
+
+jobs:
+  analyze:
+    name: Analyze (C#)
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.x'
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: csharp
+          # Built-in query suites: security-extended catches more than the default
+          queries: security-extended,security-and-quality
+
+      - name: Restore dependencies
+        run: dotnet restore API/API.csproj
+
+      - name: Build (autobuild fallback — explicit build preferred)
+        run: dotnet build API/API.csproj --no-restore --configuration Release
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: '/language:csharp'
