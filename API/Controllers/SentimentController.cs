@@ -4,6 +4,7 @@ using Application.Features.Sentiment.Queries.GetSentimentHistory;
 using Application.Features.Sentiment.Queries.GetSentimentStats;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace API.Controllers;
 
@@ -18,10 +19,13 @@ public class SentimentController(ISender sender) : ControllerBase
     /// <summary>
     /// Analyze sentiment for a piece of financial text.
     /// Returns 201 Created with the analysis result.
+    /// Rate-limited: see RateLimiting:AnalyzePermitLimit in appsettings.json.
     /// </summary>
     [HttpPost("analyze")]
+    [EnableRateLimiting(RateLimitPolicies.AnalyzeEndpoint)]
     [ProducesResponseType(typeof(AnalyzeSentimentResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> Analyze(
         [FromBody] AnalyzeSentimentRequest request,
         CancellationToken ct)
