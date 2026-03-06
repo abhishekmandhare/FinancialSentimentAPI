@@ -5,6 +5,7 @@ using Application.Features.Sentiment.Queries.GetSentimentStats;
 using Application.Features.Sentiment.Queries.GetTrendingSymbols;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace API.Controllers;
 
@@ -21,8 +22,10 @@ public class SentimentController(ISender sender) : ControllerBase
     /// Returns 201 Created with the analysis result.
     /// </summary>
     [HttpPost("analyze")]
+    [EnableRateLimiting(RateLimitPolicies.AnalyzeEndpoint)]
     [ProducesResponseType(typeof(AnalyzeSentimentResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> Analyze(
         [FromBody] AnalyzeSentimentRequest request,
         CancellationToken ct)
