@@ -4,12 +4,13 @@ obj/
 *.user
 *.suo
 .vs/
-*.db
-*.db-shm
-*.db-wal
 
-## User secrets (never commit — use environment variables in production)
+## Secrets — never commit credentials
 secrets.json
+.env
+## Environment configs that contain local credentials (copy from .example)
+API/appsettings.Development.json
+API/appsettings.Testing.json
 
 ## Rider
 .idea/

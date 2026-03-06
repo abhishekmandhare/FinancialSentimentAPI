@@ -1,0 +1,16 @@
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Warning"
+    }
+  },
+  "ConnectionStrings": {
+    "DefaultConnection": "Host=localhost;Database=sentiment_test;Username=sentiment;Password=dev"
+  },
+  "AI": {
+    "Provider": "Mock"
+  },
+  "Ingestion": {
+    "PollingIntervalMinutes": 99999
+  }
+}

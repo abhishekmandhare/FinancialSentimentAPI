@@ -1,0 +1,54 @@
+services:
+
+  api:
+    # Build locally: docker compose build
+    # Future: replace 'build' with 'image: gcr.io/<project>/financial-sentiment-api:<tag>'
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: financial-sentiment-api:latest
+    ports:
+      - "8080:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__DefaultConnection: >-
+        Host=db;Database=sentiment;Username=sentiment;Password=${DB_PASSWORD}
+      AI__Provider: ${AI_PROVIDER:-Mock}
+      Anthropic__ApiKey: ${ANTHROPIC_API_KEY:-}
+      Anthropic__Model: claude-haiku-4-5-20251001
+      Anthropic__MaxTokens: 512
+      Ingestion__TrackedSymbols__0: AAPL
+      Ingestion__TrackedSymbols__1: MSFT
+      Ingestion__TrackedSymbols__2: GOOGL
+      Ingestion__TrackedSymbols__3: TSLA
+      Ingestion__TrackedSymbols__4: NVDA
+      Ingestion__PollingIntervalMinutes: 15
+      Ingestion__MaxConcurrentAnalyses: 3
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health/live || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: sentiment
+      POSTGRES_USER: sentiment
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sentiment -d sentiment"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:

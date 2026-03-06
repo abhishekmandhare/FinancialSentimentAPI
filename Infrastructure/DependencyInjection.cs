@@ -19,7 +19,7 @@ public static class DependencyInjection
     {
         // --- Persistence ---
         services.AddDbContext<AppDbContext>(opts =>
-            opts.UseSqlite(configuration.GetConnectionString("DefaultConnection")));
+            opts.UseNpgsql(configuration.GetConnectionString("DefaultConnection")));
 
         services.AddScoped<ISentimentRepository, SentimentRepository>();
         services.AddScoped<ITrackedSymbolsProvider, ConfigTrackedSymbolsProvider>();
