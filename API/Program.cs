@@ -33,19 +33,19 @@ builder.Services.AddRateLimiter(options =>
     };
 });
 
-builder.Services.AddOptions<RateLimiterOptions>()
-    .Configure<IConfiguration>((options, config) =>
-    {
-        var permitLimit = config.GetValue("RateLimiting:AnalyzePermitLimit", 10);
-        var windowSeconds = config.GetValue("RateLimiting:AnalyzeWindowSeconds", 60);
-        options.AddFixedWindowLimiter(RateLimitPolicies.AnalyzeEndpoint, limiterOptions =>
-        {
-            limiterOptions.PermitLimit = permitLimit;
-            limiterOptions.Window = TimeSpan.FromSeconds(windowSeconds);
-            limiterOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
-            limiterOptions.QueueLimit = 0;
-        });
-    });
+//builder.Services.AddOptions<RateLimiterOptions>()
+//    .Configure<IConfiguration>((options, config) =>
+//    {
+//        var permitLimit = config.GetValue("RateLimiting:AnalyzePermitLimit", 10);
+//        var windowSeconds = config.GetValue("RateLimiting:AnalyzeWindowSeconds", 60);
+//        options.AddFixedWindowLimiter(RateLimitPolicies.AnalyzeEndpoint, limiterOptions =>
+//        {
+//            limiterOptions.PermitLimit = permitLimit;
+//            limiterOptions.Window = TimeSpan.FromSeconds(windowSeconds);
+//            limiterOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+//            limiterOptions.QueueLimit = 0;
+//        });
+//    });
 
 // Each layer owns its own DI registration.
 // API only calls AddApplication() and AddInfrastructure() — knows nothing about internals.
