@@ -26,8 +26,7 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: Run tests
-        run: dotnet test Tests/Tests.csproj --configuration Release --no-build --verbosity normal
-        # Note: appsettings.Testing.json must be present; secrets are injected via env
+        run: dotnet test Tests/Tests.csproj --configuration Release --verbosity normal
         env:
           ASPNETCORE_ENVIRONMENT: Testing
 
