@@ -15,16 +15,16 @@ namespace Infrastructure.Migrations
                 name: "SentimentAnalyses",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    Symbol = table.Column<string>(type: "TEXT", maxLength: 10, nullable: false),
-                    OriginalText = table.Column<string>(type: "TEXT", nullable: false),
-                    SourceUrl = table.Column<string>(type: "TEXT", nullable: true),
-                    Score = table.Column<double>(type: "REAL", nullable: false),
-                    Label = table.Column<string>(type: "TEXT", nullable: false),
-                    Confidence = table.Column<double>(type: "REAL", nullable: false),
-                    KeyReasons = table.Column<string>(type: "TEXT", nullable: false),
-                    ModelVersion = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
-                    AnalyzedAt = table.Column<DateTime>(type: "TEXT", nullable: false)
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    Symbol = table.Column<string>(type: "character varying(10)", maxLength: 10, nullable: false),
+                    OriginalText = table.Column<string>(type: "text", nullable: false),
+                    SourceUrl = table.Column<string>(type: "text", nullable: true),
+                    Score = table.Column<double>(type: "double precision", nullable: false),
+                    Label = table.Column<string>(type: "text", nullable: false),
+                    Confidence = table.Column<double>(type: "double precision", nullable: false),
+                    KeyReasons = table.Column<string>(type: "text", nullable: false),
+                    ModelVersion = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    AnalyzedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
                 constraints: table =>
                 {

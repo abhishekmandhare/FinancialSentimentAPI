@@ -21,8 +21,14 @@ builder.Services.AddInfrastructure(builder.Configuration);
 
 var app = builder.Build();
 
-// Auto-migrate in development — creates sentiment.db and applies all migrations.
-// In production, run migrations explicitly as part of deployment (not at startup).
+// Auto-migrate on every startup — idempotent, safe for single-instance deployments
+// (home server, Cloud Run). For multi-instance HA, extract to a separate migration job.
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    await db.Database.MigrateAsync();
+}
+
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
@@ -31,10 +37,6 @@ if (app.Environment.IsDevelopment())
         opts.Title = "Financial Sentiment API";
         opts.Theme = ScalarTheme.DeepSpace;
     });
-
-    using var scope = app.Services.CreateScope();
-    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    await db.Database.MigrateAsync();
 }
 
 // Middleware order matters:
