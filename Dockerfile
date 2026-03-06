@@ -21,11 +21,13 @@ RUN dotnet publish API/API.csproj -c Release -o /app/publish --no-restore
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
 
-# Non-root user — principle of least privilege
-RUN adduser --disabled-password --gecos '' appuser && chown -R appuser /app
-USER appuser
+# Npgsql requires libgssapi for Kerberos probing (even when not used)
+RUN apt-get update && apt-get install -y --no-install-recommends libgssapi-krb5-2 && rm -rf /var/lib/apt/lists/*
 
-COPY --from=build --chown=appuser:appuser /app/publish .
+# Non-root user — .NET 10 images ship a built-in 'app' user (UID 1654)
+USER app
+
+COPY --from=build /app/publish .
 
 # Port 8080 — Cloud Run and TrueNAS both expect a non-privileged port
 ENV ASPNETCORE_URLS=http://+:8080
