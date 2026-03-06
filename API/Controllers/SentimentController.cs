@@ -20,6 +20,7 @@ public class SentimentController(ISender sender) : ControllerBase
     /// <summary>
     /// Analyze sentiment for a piece of financial text.
     /// Returns 201 Created with the analysis result.
+    /// Rate-limited: see RateLimiting:AnalyzePermitLimit in appsettings.json.
     /// </summary>
     [HttpPost("analyze")]
     [EnableRateLimiting(RateLimitPolicies.AnalyzeEndpoint)]
