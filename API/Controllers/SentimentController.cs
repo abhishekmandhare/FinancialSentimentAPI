@@ -2,6 +2,7 @@ using API.Controllers.DTOs;
 using Application.Features.Sentiment.Commands.AnalyzeSentiment;
 using Application.Features.Sentiment.Queries.GetSentimentHistory;
 using Application.Features.Sentiment.Queries.GetSentimentStats;
+using Application.Features.Sentiment.Queries.GetTrendingSymbols;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -56,6 +57,20 @@ public class SentimentController(ISender sender) : ControllerBase
         var result = await sender.Send(
             new GetSentimentHistoryQuery(symbol, page, pageSize, from, to), ct);
 
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Top symbols ranked by largest sentiment score shift in the given rolling window.
+    /// </summary>
+    [HttpGet("trending")]
+    [ProducesResponseType(typeof(IReadOnlyList<TrendingSymbolDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetTrending(
+        [FromQuery] int hours = 24,
+        [FromQuery] int limit = 10,
+        CancellationToken ct = default)
+    {
+        var result = await sender.Send(new GetTrendingSymbolsQuery(hours, limit), ct);
         return Ok(result);
     }
 

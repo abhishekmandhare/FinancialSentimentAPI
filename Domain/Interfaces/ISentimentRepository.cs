@@ -24,4 +24,8 @@ public interface ISentimentRepository
         StockSymbol symbol,
         int days,
         CancellationToken ct = default);
+
+    Task<IReadOnlyList<SentimentAnalysis>> GetRecentAsync(
+        DateTime from,
+        CancellationToken ct = default);
 }

@@ -53,4 +53,15 @@ public class SentimentRepository(AppDbContext context) : ISentimentRepository
             .OrderBy(a => a.AnalyzedAt)
             .ToListAsync(ct);
     }
+
+    public async Task<IReadOnlyList<SentimentAnalysis>> GetRecentAsync(
+        DateTime from,
+        CancellationToken ct = default)
+    {
+        return await context.SentimentAnalyses
+            .Where(a => a.AnalyzedAt >= from)
+            .OrderBy(a => a.Symbol)
+            .ThenBy(a => a.AnalyzedAt)
+            .ToListAsync(ct);
+    }
 }
