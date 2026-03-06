@@ -15,6 +15,9 @@ services:
       Anthropic__ApiKey: ${ANTHROPIC_API_KEY:-}
       Anthropic__Model: claude-haiku-4-5-20251001
       Anthropic__MaxTokens: 512
+      Ollama__BaseUrl: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      Ollama__Model: ${OLLAMA_MODEL:-llama3}
+      Ollama__MaxTokens: 512
       Ingestion__TrackedSymbols__0: AAPL
       Ingestion__TrackedSymbols__1: MSFT
       Ingestion__TrackedSymbols__2: GOOGL
