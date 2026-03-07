@@ -152,6 +152,31 @@
         .direction-badge.Bearish { background: rgba(255,92,92,0.15); color: var(--red); }
         .direction-badge.Neutral { background: rgba(255,197,66,0.15); color: var(--yellow); }
 
+        /* Price column */
+        .price-cell {
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+        }
+
+        .price-value {
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .price-change {
+            font-size: 0.75rem;
+            margin-top: 2px;
+        }
+
+        .price-change.up { color: var(--green); }
+        .price-change.down { color: var(--red); }
+        .price-change.flat { color: var(--text-dim); }
+
+        .sparkline-cell {
+            padding: 8px 12px;
+            width: 100px;
+        }
+
         /* Detail Panel */
         .detail-panel {
             background: var(--surface);
@@ -301,6 +326,8 @@
             header { padding: 12px 16px; }
             th, td { padding: 8px 10px; font-size: 0.82rem; }
             .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .sparkline-cell { display: none; }
+            th.sparkline-header { display: none; }
         }
     </style>
 </head>
@@ -333,6 +360,8 @@
                 <thead>
                     <tr>
                         <th>Symbol</th>
+                        <th>Price</th>
+                        <th class="sparkline-header">5D</th>
                         <th>Score</th>
                         <th>Prev</th>
                         <th>Delta</th>
@@ -340,7 +369,7 @@
                     </tr>
                 </thead>
                 <tbody id="trendingBody">
-                    <tr><td colspan="5" class="empty-state">Loading...</td></tr>
+                    <tr><td colspan="7" class="empty-state">Loading...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -349,6 +378,7 @@
     <script>
         const API = '';
         let refreshTimer;
+        const priceCache = {};
 
         const SYMBOLS = {
             'AAPL':    'Apple Inc.',
@@ -372,7 +402,91 @@
             return SYMBOLS[sym] || sym;
         }
 
-        // ── Trending ──────────────────────────────────────────────
+        // -- Stock Price Fetching -----------------------------------------
+
+        async function fetchStockPrice(symbol) {
+            try {
+                const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=5d&interval=1h`;
+                const res = await fetch(url);
+                if (!res.ok) return null;
+                const data = await res.json();
+                const result = data.chart.result;
+                if (!result || !result.length) return null;
+
+                const meta = result[0].meta;
+                const closes = result[0].indicators.quote[0].close;
+                // Filter out null values
+                const validCloses = closes.filter(c => c !== null && c !== undefined);
+                if (!validCloses.length) return null;
+
+                const currentPrice = meta.regularMarketPrice;
+                const previousClose = meta.chartPreviousClose || meta.previousClose;
+                const change = previousClose ? currentPrice - previousClose : 0;
+                const changePercent = previousClose ? (change / previousClose) * 100 : 0;
+
+                return {
+                    price: currentPrice,
+                    change: change,
+                    changePercent: changePercent,
+                    sparklineData: validCloses
+                };
+            } catch (e) {
+                return null;
+            }
+        }
+
+        async function fetchAllPrices(symbols) {
+            const promises = symbols.map(async (sym) => {
+                const data = await fetchStockPrice(sym);
+                if (data) {
+                    priceCache[sym] = data;
+                }
+            });
+            await Promise.allSettled(promises);
+        }
+
+        // -- Sparkline SVG ------------------------------------------------
+
+        function createSparklineSvg(data, isPositive) {
+            if (!data || data.length < 2) return '';
+
+            const width = 80;
+            const height = 28;
+            const padding = 2;
+
+            const min = Math.min(...data);
+            const max = Math.max(...data);
+            const range = max - min || 1;
+
+            const points = data.map((val, i) => {
+                const x = padding + (i / (data.length - 1)) * (width - 2 * padding);
+                const y = padding + (1 - (val - min) / range) * (height - 2 * padding);
+                return `${x.toFixed(1)},${y.toFixed(1)}`;
+            });
+
+            const color = isPositive ? '#00c48c' : '#ff5c5c';
+            const gradientId = 'sg' + Math.random().toString(36).substring(2, 8);
+
+            // Create fill area path
+            const firstPoint = points[0];
+            const lastPoint = points[points.length - 1];
+            const lastX = parseFloat(lastPoint.split(',')[0]);
+            const firstX = parseFloat(firstPoint.split(',')[0]);
+
+            return `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <linearGradient id="${gradientId}" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stop-color="${color}" stop-opacity="0.25"/>
+                        <stop offset="100%" stop-color="${color}" stop-opacity="0.02"/>
+                    </linearGradient>
+                </defs>
+                <polygon points="${points.join(' ')} ${lastX},${height} ${firstX},${height}" fill="url(#${gradientId})"/>
+                <polyline points="${points.join(' ')}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>`;
+        }
+
+        // -- Trending -----------------------------------------------------
+
         async function loadTrending() {
             try {
                 const res = await fetch(`${API}/api/sentiment/trending?hours=24&limit=20`);
@@ -380,6 +494,9 @@
                 const data = await res.json();
                 setStatus(true);
                 renderTrending(data);
+                // Fetch prices in the background, then update the table
+                const symbols = data.map(t => t.symbol);
+                fetchAllPrices(symbols).then(() => updatePriceCells(data));
             } catch (e) {
                 setStatus(false);
                 showError(`Failed to load trending data: ${e.message}`);
@@ -389,15 +506,20 @@
         function renderTrending(items) {
             const tbody = document.getElementById('trendingBody');
             if (!items.length) {
-                tbody.innerHTML = '<tr><td colspan="5" class="empty-state"><p>No sentiment data yet.</p><p>The ingestion pipeline will populate this automatically.</p></td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" class="empty-state"><p>No sentiment data yet.</p><p>The ingestion pipeline will populate this automatically.</p></td></tr>';
                 return;
             }
             tbody.innerHTML = items.map(t => {
                 const scoreClass = t.currentAvgScore > 0.1 ? 'positive' : t.currentAvgScore < -0.1 ? 'negative' : 'neutral';
                 const deltaClass = t.delta > 0.01 ? 'up' : t.delta < -0.01 ? 'down' : 'flat';
                 const deltaSign = t.delta > 0 ? '+' : '';
+                const cached = priceCache[t.symbol];
+                const priceHtml = cached ? formatPriceCell(cached) : '<span style="color:var(--text-dim)">&mdash;</span>';
+                const sparkHtml = cached ? createSparklineSvg(cached.sparklineData, cached.change >= 0) : '';
                 return `<tr onclick="openDetail('${t.symbol}')">
                     <td><strong>${t.symbol}</strong><br><span style="font-size:0.75rem;color:var(--text-dim);font-weight:normal">${symbolName(t.symbol)}</span></td>
+                    <td class="price-cell" data-price-symbol="${t.symbol}">${priceHtml}</td>
+                    <td class="sparkline-cell" data-sparkline-symbol="${t.symbol}">${sparkHtml}</td>
                     <td class="score ${scoreClass}">${t.currentAvgScore.toFixed(3)}</td>
                     <td class="score" style="color:var(--text-dim)">${t.previousAvgScore.toFixed(3)}</td>
                     <td class="delta ${deltaClass}">${deltaSign}${t.delta.toFixed(3)}</td>
@@ -406,7 +528,33 @@
             }).join('');
         }
 
-        // ── Detail Panel ──────────────────────────────────────────
+        function formatPriceCell(data) {
+            const changeClass = data.change > 0.005 ? 'up' : data.change < -0.005 ? 'down' : 'flat';
+            const changeSign = data.change > 0 ? '+' : '';
+            const priceStr = data.price >= 1000 ? data.price.toFixed(0) : data.price >= 1 ? data.price.toFixed(2) : data.price.toFixed(4);
+            return `<div class="price-value">$${priceStr}</div>
+                    <div class="price-change ${changeClass}">${changeSign}${data.changePercent.toFixed(2)}%</div>`;
+        }
+
+        function updatePriceCells(items) {
+            items.forEach(t => {
+                const cached = priceCache[t.symbol];
+                if (!cached) return;
+
+                const priceCell = document.querySelector(`[data-price-symbol="${t.symbol}"]`);
+                if (priceCell) {
+                    priceCell.innerHTML = formatPriceCell(cached);
+                }
+
+                const sparkCell = document.querySelector(`[data-sparkline-symbol="${t.symbol}"]`);
+                if (sparkCell) {
+                    sparkCell.innerHTML = createSparklineSvg(cached.sparklineData, cached.change >= 0);
+                }
+            });
+        }
+
+        // -- Detail Panel -------------------------------------------------
+
         async function openDetail(symbol) {
             const panel = document.getElementById('detailPanel');
             document.getElementById('detailSymbol').innerHTML = `${symbol} <span style="font-size:0.85rem;color:var(--text-dim);font-weight:normal;margin-left:8px">${symbolName(symbol)}</span>`;
@@ -505,7 +653,8 @@
             document.getElementById('detailPanel').classList.remove('visible');
         }
 
-        // ── Helpers ──────────────────────────────────────────────
+        // -- Helpers ------------------------------------------------------
+
         function setStatus(ok) {
             const dot = document.getElementById('statusDot');
             const txt = document.getElementById('statusText');
@@ -539,7 +688,8 @@
             return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
         }
 
-        // ── Init ─────────────────────────────────────────────────
+        // -- Init ---------------------------------------------------------
+
         loadTrending();
         refreshTimer = setInterval(loadTrending, 30000);
     </script>
