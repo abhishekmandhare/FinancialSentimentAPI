@@ -1,4 +1,6 @@
 using System.Xml.Linq;
+using System.Xml;
+using System.Net.Http;
 using Domain.ValueObjects;
 using Microsoft.Extensions.Logging;
 
@@ -30,7 +32,11 @@ public class GoogleNewsSourceService(
             var xml = await httpClient.GetStringAsync(url, ct);
             return ParseRss(xml, since);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (
+            ex is HttpRequestException
+            || ex is TaskCanceledException
+            || ex is OperationCanceledException
+            || ex is XmlException)
         {
             logger.LogWarning(ex, "Failed to fetch Google News RSS feed for {Symbol}", symbol.Value);
             return [];
