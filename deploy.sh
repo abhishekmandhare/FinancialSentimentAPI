@@ -4,6 +4,7 @@
 # Usage:
 #   ./deploy.sh          # pull latest and restart
 #   ./deploy.sh logs     # pull, restart, and tail logs
+#   & "C:\Program Files\Git\bin\bash.exe" deploy.sh      for powershell
 
 set -euo pipefail
 
