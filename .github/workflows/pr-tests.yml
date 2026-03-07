@@ -29,7 +29,7 @@ jobs:
           ASPNETCORE_ENVIRONMENT: Testing
 
       - name: Generate coverage report
-        uses: danielpalme/ReportGenerator-GitHub-Action@v1
+        uses: danielpalme/ReportGenerator-GitHub-Action@v6
         with:
           reports: ./coverage/**/coverage.cobertura.xml
           targetdir: ./coverage/report
