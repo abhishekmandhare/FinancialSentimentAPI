@@ -12,6 +12,7 @@ namespace Infrastructure.Persistence;
 public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {
     public DbSet<SentimentAnalysis> SentimentAnalyses => Set<SentimentAnalysis>();
+    public DbSet<TrackedSymbol> TrackedSymbols => Set<TrackedSymbol>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
