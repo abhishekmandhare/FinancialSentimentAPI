@@ -8,6 +8,7 @@ using Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace Infrastructure;
 
@@ -66,11 +67,28 @@ public static class DependencyInjection
 
         services.AddSingleton<IArticleQueue, InMemoryArticleQueue>();
 
-        services.AddHttpClient<INewsSourceService, RssNewsSourceService>(client =>
+        const string userAgent =
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+
+        services.AddHttpClient<RssNewsSourceService>(client =>
+            client.DefaultRequestHeaders.UserAgent.ParseAdd(userAgent));
+
+        services.AddHttpClient<GoogleNewsSourceService>(client =>
+            client.DefaultRequestHeaders.UserAgent.ParseAdd(userAgent));
+
+        services.AddHttpClient<RedditNewsSourceService>(client =>
+            client.DefaultRequestHeaders.UserAgent.ParseAdd(userAgent));
+
+        services.AddTransient<INewsSourceService>(sp =>
         {
-            // Yahoo Finance returns 429 for requests without a browser User-Agent
-            client.DefaultRequestHeaders.UserAgent.ParseAdd(
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+            INewsSourceService[] sources =
+            [
+                sp.GetRequiredService<RssNewsSourceService>(),
+                sp.GetRequiredService<GoogleNewsSourceService>(),
+                sp.GetRequiredService<RedditNewsSourceService>(),
+            ];
+            var log = sp.GetRequiredService<ILogger<CompositeNewsSourceService>>();
+            return new CompositeNewsSourceService(sources, log);
         });
 
         services.AddHostedService<SentimentIngestionWorker>();
