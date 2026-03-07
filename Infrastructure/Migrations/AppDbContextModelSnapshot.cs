@@ -22,6 +22,32 @@ namespace Infrastructure.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Domain.Entities.TrackedSymbol", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("Id");
+
+                    b.Property<DateTime>("AddedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("AddedAt");
+
+                    b.Property<string>("Symbol")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("Symbol");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Symbol")
+                        .IsUnique()
+                        .HasDatabaseName("IX_TrackedSymbols_Symbol");
+
+                    b.ToTable("TrackedSymbols", (string)null);
+                });
+
             modelBuilder.Entity("Domain.Entities.SentimentAnalysis", b =>
                 {
                     b.Property<Guid>("Id")

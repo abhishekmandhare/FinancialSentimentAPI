@@ -23,7 +23,8 @@ public static class DependencyInjection
             opts.UseNpgsql(configuration.GetConnectionString("DefaultConnection")));
 
         services.AddScoped<ISentimentRepository, SentimentRepository>();
-        services.AddScoped<ITrackedSymbolsProvider, ConfigTrackedSymbolsProvider>();
+        services.AddScoped<ITrackedSymbolRepository, TrackedSymbolRepository>();
+        services.AddScoped<ITrackedSymbolsProvider, DbTrackedSymbolsProvider>();
 
         // --- AI Service (switchable via config) ---
         var aiProvider = configuration["AI:Provider"] ?? "Mock";
