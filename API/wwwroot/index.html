@@ -350,6 +350,28 @@
         const API = '';
         let refreshTimer;
 
+        const SYMBOLS = {
+            'AAPL':    'Apple Inc.',
+            'MSFT':    'Microsoft Corp.',
+            'GOOGL':   'Alphabet Inc.',
+            'TSLA':    'Tesla Inc.',
+            'NVDA':    'NVIDIA Corp.',
+            'AMZN':    'Amazon.com Inc.',
+            'META':    'Meta Platforms Inc.',
+            'NFLX':    'Netflix Inc.',
+            'AMD':     'Advanced Micro Devices',
+            'INTC':    'Intel Corp.',
+            'JPM':     'JPMorgan Chase & Co.',
+            'BAC':     'Bank of America Corp.',
+            'SPY':     'S&P 500 ETF',
+            'QQQ':     'Nasdaq-100 ETF',
+            'BTC-USD': 'Bitcoin',
+        };
+
+        function symbolName(sym) {
+            return SYMBOLS[sym] || sym;
+        }
+
         // ── Trending ──────────────────────────────────────────────
         async function loadTrending() {
             try {
@@ -375,7 +397,7 @@
                 const deltaClass = t.delta > 0.01 ? 'up' : t.delta < -0.01 ? 'down' : 'flat';
                 const deltaSign = t.delta > 0 ? '+' : '';
                 return `<tr onclick="openDetail('${t.symbol}')">
-                    <td><strong>${t.symbol}</strong></td>
+                    <td><strong>${t.symbol}</strong><br><span style="font-size:0.75rem;color:var(--text-dim);font-weight:normal">${symbolName(t.symbol)}</span></td>
                     <td class="score ${scoreClass}">${t.currentAvgScore.toFixed(3)}</td>
                     <td class="score" style="color:var(--text-dim)">${t.previousAvgScore.toFixed(3)}</td>
                     <td class="delta ${deltaClass}">${deltaSign}${t.delta.toFixed(3)}</td>
@@ -387,7 +409,7 @@
         // ── Detail Panel ──────────────────────────────────────────
         async function openDetail(symbol) {
             const panel = document.getElementById('detailPanel');
-            document.getElementById('detailSymbol').textContent = symbol;
+            document.getElementById('detailSymbol').innerHTML = `${symbol} <span style="font-size:0.85rem;color:var(--text-dim);font-weight:normal;margin-left:8px">${symbolName(symbol)}</span>`;
             document.getElementById('statsGrid').innerHTML = '<div class="stat-cell"><span class="stat-label">Loading...</span></div>';
             document.getElementById('historyList').innerHTML = '';
             panel.classList.add('visible');
