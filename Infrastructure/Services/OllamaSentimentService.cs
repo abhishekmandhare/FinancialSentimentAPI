@@ -17,16 +17,21 @@ public class OllamaSentimentService(
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     private const string SystemPrompt = """
-        You are a financial analyst specializing in equity sentiment analysis.
-        Focus on: earnings, revenue, guidance, competitive position, management commentary.
-        Ignore general market sentiment unless directly tied to the specified stock symbol.
+        You are a financial sentiment scoring API. You receive text and a stock symbol.
+        You MUST respond with ONLY a JSON object — no explanations, no apologies, no commentary.
 
-        Return ONLY valid JSON in this exact format, with no other text:
-        {
-          "score": <float between -1.0 (very negative) and 1.0 (very positive)>,
-          "confidence": <float between 0.0 and 1.0>,
-          "keyReasons": ["<reason 1>", "<reason 2>", "<reason 3>"]
-        }
+        If the text is irrelevant to the stock symbol, return a neutral score with low confidence.
+        NEVER refuse. NEVER return plain text. ALWAYS return this exact JSON format:
+
+        {"score": 0.0, "confidence": 0.0, "keyReasons": ["reason"]}
+
+        Fields:
+        - score: float from -1.0 (very negative) to 1.0 (very positive)
+        - confidence: float from 0.0 (no relevance) to 1.0 (highly relevant)
+        - keyReasons: 1-3 short strings explaining the score
+
+        If the text has nothing to do with the stock, return:
+        {"score": 0.0, "confidence": 0.1, "keyReasons": ["Text not relevant to the stock symbol"]}
         """;
 
     public async Task<AiSentimentResult> AnalyzeAsync(
@@ -101,8 +106,12 @@ public class OllamaSentimentService(
         }
         catch (JsonException ex)
         {
-            logger.LogWarning(ex, "Failed to parse Ollama response as JSON. Raw content: {Content}", content);
-            throw new InvalidOperationException("AI service returned an unparseable response.", ex);
+            logger.LogWarning(ex, "Failed to parse Ollama response as JSON, returning neutral fallback. Raw content: {Content}", content);
+            return new AiSentimentResult(
+                Score:        0.0,
+                Confidence:   0.1,
+                KeyReasons:   ["AI response was not valid JSON — treated as neutral"],
+                ModelVersion: model);
         }
     }
 
