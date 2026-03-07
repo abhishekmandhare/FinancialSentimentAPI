@@ -28,3 +28,5 @@ Thumbs.db
 ## Build output
 publish/
 artifacts/
+.aider.chat.history.md
+.aider.input.history
