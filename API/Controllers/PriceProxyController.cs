@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using System.Net.Http;
 
 namespace API.Controllers;
 
@@ -45,7 +46,7 @@ public class PriceProxyController(IHttpClientFactory httpClientFactory) : Contro
             var json = await response.Content.ReadAsStringAsync(ct);
             return Content(json, "application/json");
         }
-        catch (Exception)
+        catch (HttpRequestException)
         {
             return StatusCode(502, new ProblemDetails
             {
