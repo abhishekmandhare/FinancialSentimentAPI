@@ -19,14 +19,14 @@ A .NET 10 Web API that automatically monitors financial news and performs AI-pow
 ┌──────────────────────────────▼──────────────────────────────────────┐
 │  Application Layer  (Use Cases / CQRS)                              │
 │  Commands: AnalyzeSentiment                                         │
-│  Queries:  GetSentimentHistory  GetSentimentStats                   │
+│  Queries:  GetSentimentHistory  GetSentimentStats  GetTrendingSymbols│
 │  Pipeline: LoggingBehavior → ValidationBehavior → Handler           │
 └──────────┬──────────────────────────────────────────┬───────────────┘
            │ IAiSentimentService                      │ ISentimentRepository
 ┌──────────▼──────────────┐              ┌────────────▼───────────────┐
 │  Infrastructure (AI)    │              │  Infrastructure (DB)       │
-│  AnthropicSentiment     │              │  AppDbContext (EF/SQLite)  │
-│  Service | Mock         │              │  SentimentRepository       │
+│  AnthropicSentiment     │              │  AppDbContext (EF/Postgres)│
+│  OllamaSentiment | Mock │              │  SentimentRepository       │
 └─────────────────────────┘              └────────────────────────────┘
                          │
 ┌────────────────────────▼────────────────────────────────────────────┐
@@ -50,13 +50,14 @@ A .NET 10 Web API that automatically monitors financial news and performs AI-pow
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `POST` | `/api/sentiment/analyze` | Manually submit text for analysis (dev/testing) |
+| `POST` | `/api/sentiment/analyze` | Manually submit text for sentiment analysis. Rate-limited: 10 req/min per IP. |
+| `GET`  | `/api/sentiment/trending` | Top symbols by sentiment score shift in a rolling window (`?hours=24&limit=10`) |
 | `GET`  | `/api/sentiment/{symbol}/history` | Paginated analysis history for a symbol |
 | `GET`  | `/api/sentiment/{symbol}/stats` | Aggregated stats: avg score, trend, distribution |
 | `GET`  | `/health/live` | Liveness probe |
 | `GET`  | `/health/ready` | Readiness probe (checks DB) |
 
-The primary flow is automatic: the ingestion worker polls Yahoo Finance RSS for tracked symbols and feeds articles through the pipeline without any user action.
+The primary flow is **automatic**: `SentimentIngestionWorker` polls Yahoo Finance RSS every 5 minutes for all tracked symbols and feeds articles through the AI analysis pipeline without any user action. The `/trending` endpoint reflects this live data.
 
 ---
 
@@ -73,27 +74,35 @@ cd FinancialSentimentAPI
 dotnet restore API/API.csproj
 ```
 
-### 2. Set API key (for real Anthropic analysis)
+### 2. Configure AI provider
+
+The mock AI service is enabled by default — no setup needed for development.
+
+**Ollama (recommended, free, self-hosted):**
+```bash
+# In .env or appsettings.Development.json
+AI__Provider=Ollama
+Ollama__BaseUrl=http://your-ollama-host:11434
+Ollama__Model=llama3
+```
+
+**Anthropic:**
 ```bash
 cd API
 dotnet user-secrets set "Anthropic:ApiKey" "sk-ant-..."
+dotnet user-secrets set "AI:Provider" "Anthropic"
 ```
-The mock AI service is enabled by default (`"AI": { "Provider": "Mock" }` in appsettings.json). No API key needed for development.
 
-### 3. Run migrations
+### 3. Run with Docker (recommended)
 ```bash
-cd ..   # solution root
+cp .env.example .env   # fill in DB_PASSWORD, AI_PROVIDER, OLLAMA_BASE_URL
+docker compose up -d
+```
+
+### 4. Run locally
+```bash
 dotnet ef database update --project Infrastructure --startup-project API
-```
-
-### 4. Run
-```bash
 dotnet run --project API
-```
-
-To switch to real Anthropic analysis, change `appsettings.json`:
-```json
-"AI": { "Provider": "Anthropic" }
 ```
 
 ---
@@ -113,7 +122,7 @@ FinancialSentimentAPI/
 ├── Application/             ← use cases; MediatR + FluentValidation
 │   ├── Features/Sentiment/
 │   │   ├── Commands/AnalyzeSentiment/
-│   │   └── Queries/GetSentimentHistory | GetSentimentStats/
+│   │   └── Queries/GetSentimentHistory | GetSentimentStats | GetTrendingSymbols/
 │   ├── Behaviors/
 │   ├── Services/            ← IAiSentimentService, IArticleQueue
 │   └── Exceptions/
@@ -145,16 +154,39 @@ FinancialSentimentAPI/
 | `IArticleQueue` interface | In-memory `Channel<T>` now; swap to GCP Pub/Sub with one DI change |
 | `ITrackedSymbolsProvider` | Config file now; swap to DB-backed admin endpoint with one DI change |
 | Label derived by domain | AI returns raw score; domain decides what score means (configurable thresholds) |
-| `AI:Provider` string config | Extensible provider switching: Mock → Anthropic → OpenAI without code changes |
+| `AI:Provider` string config | Extensible provider switching: Mock → Anthropic → Ollama without code changes |
 | Value comparers on EF lists | Ensures EF Core detects changes to JSON-stored collections |
+
+---
+
+## Ingestion Pipeline
+
+The system automatically populates data without manual API calls:
+
+```
+Yahoo Finance RSS
+        ↓  (every 5 min per symbol)
+SentimentIngestionWorker
+        ↓  deduplicates by URL hash
+IArticleQueue (Channel<T>)
+        ↓  up to 3 concurrent
+SentimentAnalysisWorker
+        ↓  dispatches via MediatR
+AnalyzeSentimentCommand → AI Provider → PostgreSQL
+```
+
+**Tracked symbols** (configured in `appsettings.json` / `docker-compose.yml`):
+AAPL, MSFT, GOOGL, TSLA, NVDA, AMZN, META, NFLX, AMD, INTC, JPM, BAC, SPY, QQQ, BTC-USD
+
+**To add symbols**: Edit `Ingestion:TrackedSymbols` in `appsettings.json` or set `Ingestion__TrackedSymbols__N` env vars — no restart required (uses `IOptionsMonitor`).
 
 ---
 
 ## Future Roadmap
 
+- Additional news sources (Google News RSS, Reddit) via `CompositeNewsSourceService`
+- DB-backed symbol management with admin API (`POST /api/symbols`)
+- On-demand backfill endpoint (`POST /api/sentiment/backfill?symbol=AAPL&hours=48`)
 - `Alert` aggregate — notify when sentiment crosses a threshold
-- `Watchlist` aggregate — user-managed list of tracked symbols
-- `TrackedSymbol` aggregate — DB-backed symbol management with admin endpoint
-- Top 10 trending — symbols with largest sentiment shift in 24h
 - GCP deployment — Cloud Run + Cloud Pub/Sub + Cloud SQL
 - OpenTelemetry — structured traces exported to GCP Cloud Trace
