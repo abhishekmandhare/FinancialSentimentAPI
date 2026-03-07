@@ -15,7 +15,10 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
-builder.Services.AddHttpClient("YahooFinance");
+builder.Services.AddHttpClient("YahooFinance", client =>
+{
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64)");
+});
 
 // Register rate limiter services and the OnRejected handler.
 // The fixed-window policy is configured separately via AddOptions<RateLimiterOptions>
