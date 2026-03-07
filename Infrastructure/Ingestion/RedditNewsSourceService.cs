@@ -1,3 +1,4 @@
+using System.Xml;
 using System.Xml.Linq;
 using Domain.ValueObjects;
 using Microsoft.Extensions.Logging;
@@ -33,9 +34,19 @@ public class RedditNewsSourceService(
             var xml = await httpClient.GetStringAsync(url, ct);
             return ParseAtom(xml, since);
         }
-        catch (Exception ex)
+        catch (OperationCanceledException)
+        {
+            // Respect cancellation and allow it to propagate.
+            throw;
+        }
+        catch (HttpRequestException ex)
         {
             logger.LogWarning(ex, "Failed to fetch Reddit RSS feed for {Symbol}", symbol.Value);
+            return [];
+        }
+        catch (XmlException ex)
+        {
+            logger.LogWarning(ex, "Failed to parse Reddit RSS feed for {Symbol}", symbol.Value);
             return [];
         }
     }
