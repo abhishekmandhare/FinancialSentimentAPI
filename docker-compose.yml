@@ -23,7 +23,17 @@ services:
       Ingestion__TrackedSymbols__2: GOOGL
       Ingestion__TrackedSymbols__3: TSLA
       Ingestion__TrackedSymbols__4: NVDA
-      Ingestion__PollingIntervalMinutes: 15
+      Ingestion__TrackedSymbols__5: AMZN
+      Ingestion__TrackedSymbols__6: META
+      Ingestion__TrackedSymbols__7: NFLX
+      Ingestion__TrackedSymbols__8: AMD
+      Ingestion__TrackedSymbols__9: INTC
+      Ingestion__TrackedSymbols__10: JPM
+      Ingestion__TrackedSymbols__11: BAC
+      Ingestion__TrackedSymbols__12: SPY
+      Ingestion__TrackedSymbols__13: QQQ
+      Ingestion__TrackedSymbols__14: BTC-USD
+      Ingestion__PollingIntervalMinutes: 5
       Ingestion__MaxConcurrentAnalyses: 3
     depends_on:
       db:
