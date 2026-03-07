@@ -38,7 +38,12 @@ public class CompositeNewsSourceService(
         {
             return await source.FetchArticlesAsync(symbol, since, ct);
         }
-        catch (Exception ex)
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            // Propagate cooperative cancellation so the overall operation can be cancelled.
+            throw;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             logger.LogWarning(ex,
                 "News source {Source} failed for {Symbol} — skipping",
