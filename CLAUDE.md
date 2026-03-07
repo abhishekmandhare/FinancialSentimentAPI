@@ -24,7 +24,11 @@ export PATH="$PATH:/c/Program Files/GitHub CLI"
 
 - **NEVER commit directly to `main`** — always create a feature branch and open a PR.
 - Branch naming: `feature/<short-description>`, `fix/<short-description>`, `chore/<short-description>`
-- Run `dotnet test` before every commit. Do not commit if tests fail.
+- **Pre-commit checklist (MANDATORY — do ALL of these before every commit):**
+  1. `dotnet build API/API.csproj` — must compile with zero errors.
+  2. `dotnet test Tests/Tests.csproj` — ALL tests must pass. Do not commit if any test fails.
+  3. Manually verify the changed functionality works as intended (run the app, hit the endpoint, check the output). A passing build is not enough — confirm the feature/fix actually works.
+  4. If you wrote new code, write or update tests to cover it. Do not commit untested code.
 - Keep commits focused — one logical change per commit.
 - Use `gh pr create` to open PRs. Include a summary and test plan.
 
