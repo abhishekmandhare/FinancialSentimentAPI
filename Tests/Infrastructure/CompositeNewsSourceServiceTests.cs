@@ -9,7 +9,7 @@ namespace Tests.Infrastructure;
 
 public class CompositeNewsSourceServiceTests
 {
-    private static readonly StockSymbol Aapl = StockSymbol.Create("AAPL");
+    private static readonly StockSymbol Aapl = new("AAPL");
     private static readonly DateTime Since = DateTime.UtcNow.AddHours(-1);
 
     private static CompositeNewsSourceService BuildSut(params INewsSourceService[] sources) =>
