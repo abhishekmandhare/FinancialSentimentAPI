@@ -122,11 +122,11 @@ public class GetTrendingSymbolsHandlerTests
     {
         var now = DateTime.UtcNow;
 
-        // AAPL: small shift (delta = 0.1)
+        // AAPL: small positive shift (delta = +0.1)
         var aaplPrev    = MakeAnalysis("AAPL", 0.4, now.AddHours(-20));
         var aaplCurrent = MakeAnalysis("AAPL", 0.5, now.AddHours(-2));
 
-        // TSLA: large shift (delta = 0.9)
+        // TSLA: large positive shift (delta = +0.9)
         var tslaPrev    = MakeAnalysis("TSLA", -0.4, now.AddHours(-20));
         var tslaCurrent = MakeAnalysis("TSLA",  0.5, now.AddHours(-2));
 
@@ -138,6 +138,43 @@ public class GetTrendingSymbolsHandlerTests
         result.Should().HaveCount(2);
         result[0].Symbol.Should().Be("TSLA");
         result[1].Symbol.Should().Be("AAPL");
+    }
+
+    [Fact]
+    public async Task Handle_MixedPositiveAndNegativeDeltas_OrderedByAbsoluteDeltaDescending()
+    {
+        var now = DateTime.UtcNow;
+
+        // GOOG: large negative shift (delta = -0.9), |delta| = 0.9
+        var googPrev    = MakeAnalysis("GOOG", 0.5, now.AddHours(-20));
+        var googCurrent = MakeAnalysis("GOOG", -0.4, now.AddHours(-2));
+
+        // MSFT: medium positive shift (delta = +0.5), |delta| = 0.5
+        var msftPrev    = MakeAnalysis("MSFT", 0.0, now.AddHours(-20));
+        var msftCurrent = MakeAnalysis("MSFT", 0.5, now.AddHours(-2));
+
+        // AAPL: small negative shift (delta = -0.2), |delta| = 0.2
+        var aaplPrev    = MakeAnalysis("AAPL", 0.3, now.AddHours(-20));
+        var aaplCurrent = MakeAnalysis("AAPL", 0.1, now.AddHours(-2));
+
+        _repository.GetRecentAsync(Arg.Any<DateTime>(), Arg.Any<CancellationToken>())
+            .Returns([googPrev, googCurrent, msftPrev, msftCurrent, aaplPrev, aaplCurrent]);
+
+        var result = await CreateHandler().Handle(new GetTrendingSymbolsQuery(24, 10), CancellationToken.None);
+
+        result.Should().HaveCount(3);
+        // GOOG first: |delta| = 0.9 (negative delta, but largest absolute move)
+        result[0].Symbol.Should().Be("GOOG");
+        result[0].Direction.Should().Be("down");
+        result[0].Delta.Should().BeApproximately(-0.9, 0.001);
+        // MSFT second: |delta| = 0.5
+        result[1].Symbol.Should().Be("MSFT");
+        result[1].Direction.Should().Be("up");
+        result[1].Delta.Should().BeApproximately(0.5, 0.001);
+        // AAPL third: |delta| = 0.2
+        result[2].Symbol.Should().Be("AAPL");
+        result[2].Direction.Should().Be("down");
+        result[2].Delta.Should().BeApproximately(-0.2, 0.001);
     }
 
     [Fact]
