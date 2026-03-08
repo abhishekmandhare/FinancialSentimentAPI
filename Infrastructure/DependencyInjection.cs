@@ -25,6 +25,7 @@ public static class DependencyInjection
         services.AddScoped<ISentimentRepository, SentimentRepository>();
         services.AddScoped<ITrackedSymbolRepository, TrackedSymbolRepository>();
         services.AddScoped<ITrackedSymbolsProvider, DbTrackedSymbolsProvider>();
+        services.AddScoped<ISystemStatsRepository, SystemStatsRepository>();
 
         // --- AI Service (switchable via config) ---
         var aiProvider = configuration["AI:Provider"] ?? "Mock";
