@@ -105,3 +105,8 @@ docker compose logs -f api    # tail logs
 ```
 
 Image: `financial-sentiment-api:latest`. Future: push to GCR/ECR.
+
+## Known Issues & Decision Log
+
+Before debugging any issue, check `docs/decision-log.md` for prior incidents and solutions.
+This log contains root cause analyses, deployment gotchas, and architectural decisions.

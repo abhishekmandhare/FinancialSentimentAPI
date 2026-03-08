@@ -10,6 +10,7 @@ public class IngestionOptions
     public const string SectionName = "Ingestion";
 
     public List<string> TrackedSymbols { get; init; } = [];
+    public List<string> SeedGroups { get; init; } = [];
     public int PollingIntervalMinutes { get; init; } = 15;
     public int MaxConcurrentAnalyses { get; init; } = 3;
 }

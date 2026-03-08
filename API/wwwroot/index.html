@@ -278,6 +278,34 @@
             text-align: center;
         }
 
+        /* Price Chart */
+        .price-chart-section {
+            padding: 20px;
+            border-top: 1px solid var(--border);
+        }
+
+        .price-chart-section .section-title {
+            margin-bottom: 8px;
+        }
+
+        .price-chart-container {
+            width: 100%;
+            overflow: hidden;
+        }
+
+        .price-chart-container svg {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .price-chart-empty {
+            color: var(--text-dim);
+            font-size: 0.85rem;
+            padding: 24px 0;
+            text-align: center;
+        }
+
         .history-list {
             padding: 16px 20px;
         }
@@ -306,6 +334,20 @@
             color: var(--text-dim);
             font-size: 0.78rem;
             margin-top: 2px;
+        }
+
+        .history-source {
+            font-size: 0.75rem;
+            margin-top: 3px;
+        }
+
+        .history-source a {
+            color: var(--blue);
+            text-decoration: none;
+        }
+
+        .history-source a:hover {
+            text-decoration: underline;
         }
 
         .confidence-bar {
@@ -357,6 +399,7 @@
             .sparkline-cell { display: none; }
             th.sparkline-header { display: none; }
             .trend-chart-section { padding: 12px; }
+            .price-chart-section { padding: 12px; }
         }
     </style>
 </head>
@@ -382,6 +425,10 @@
             <div class="trend-chart-section" id="trendChartSection" style="display:none;">
                 <p class="section-title">30-Day Sentiment Trend</p>
                 <div class="trend-chart-container" id="trendChartContainer"></div>
+            </div>
+            <div class="price-chart-section" id="priceChartSection" style="display:none;">
+                <p class="section-title">Price History (Same Period)</p>
+                <div class="price-chart-container" id="priceChartContainer"></div>
             </div>
             <div class="history-list" id="historyList"></div>
         </div>
@@ -609,6 +656,112 @@
             </svg>`;
         }
 
+        // -- Price Chart --------------------------------------------------
+
+        function createPriceChart(timestamps, closes, dateRange) {
+            // Filter to only include data points within the sentiment date range
+            const filteredData = [];
+            for (let i = 0; i < timestamps.length; i++) {
+                if (closes[i] === null || closes[i] === undefined) continue;
+                const ts = new Date(timestamps[i] * 1000);
+                if (dateRange && (ts < dateRange.min || ts > dateRange.max)) continue;
+                filteredData.push({ date: ts, price: closes[i] });
+            }
+
+            if (filteredData.length < 2) {
+                return '<div class="price-chart-empty">Not enough price data for this period</div>';
+            }
+
+            const width = 700;
+            const height = 220;
+            const padTop = 20;
+            const padBottom = 40;
+            const padLeft = 55;
+            const padRight = 15;
+            const chartW = width - padLeft - padRight;
+            const chartH = height - padTop - padBottom;
+
+            const prices = filteredData.map(d => d.price);
+            const dates = filteredData.map(d => d.date);
+
+            const yMin = Math.min(...prices);
+            const yMax = Math.max(...prices);
+            const yPadding = (yMax - yMin) * 0.1 || 1;
+            const yLow = yMin - yPadding;
+            const yHigh = yMax + yPadding;
+            const yRange = yHigh - yLow;
+
+            const firstPrice = prices[0];
+            const lastPrice = prices[prices.length - 1];
+            const isPositive = lastPrice >= firstPrice;
+            const lineColor = isPositive ? '#00c48c' : '#ff5c5c';
+
+            const gradientId = 'pg' + Math.random().toString(36).substring(2, 8);
+
+            // Use the same time range as sentiment chart for x-axis alignment
+            const timeMin = dateRange ? dateRange.min.getTime() : dates[0].getTime();
+            const timeMax = dateRange ? dateRange.max.getTime() : dates[dates.length - 1].getTime();
+            const timeRange = timeMax - timeMin || 1;
+
+            const points = filteredData.map(d => {
+                const x = padLeft + ((d.date.getTime() - timeMin) / timeRange) * chartW;
+                const y = padTop + (1 - (d.price - yLow) / yRange) * chartH;
+                return { x, y };
+            });
+
+            const polyline = points.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+
+            // Fill area under line
+            const baseY = padTop + chartH;
+            const fillPoints = points.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')
+                + ` ${points[points.length - 1].x.toFixed(1)},${baseY.toFixed(1)}`
+                + ` ${points[0].x.toFixed(1)},${baseY.toFixed(1)}`;
+
+            // Y-axis labels — 5 evenly spaced price ticks
+            const yTicks = [];
+            for (let i = 0; i <= 4; i++) {
+                yTicks.push(yLow + (yRange * i / 4));
+            }
+            const yLabels = yTicks.map(v => {
+                const y = padTop + (1 - (v - yLow) / yRange) * chartH;
+                const label = v >= 1000 ? v.toFixed(0) : v >= 1 ? v.toFixed(2) : v.toFixed(4);
+                return `<text x="${padLeft - 8}" y="${y.toFixed(1)}" text-anchor="end" dominant-baseline="middle" fill="#8b8fa3" font-size="10">$${label}</text>
+                        <line x1="${padLeft}" y1="${y.toFixed(1)}" x2="${width - padRight}" y2="${y.toFixed(1)}" stroke="#2e3345" stroke-width="0.5"/>`;
+            }).join('\n');
+
+            // X-axis labels
+            const isMobile = typeof window !== 'undefined' && window.innerWidth < 600;
+            const labelCount = isMobile ? 3 : Math.min(6, filteredData.length);
+            const xLabels = [];
+            for (let i = 0; i < labelCount; i++) {
+                const idx = Math.round(i * (filteredData.length - 1) / (labelCount - 1));
+                const x = points[idx].x;
+                const d = dates[idx];
+                const label = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                xLabels.push(`<text x="${x.toFixed(1)}" y="${height - 8}" text-anchor="middle" fill="#8b8fa3" font-size="10">${label}</text>`);
+            }
+
+            // Data point dots
+            const dotInterval = Math.max(1, Math.floor(filteredData.length / 15));
+            const dots = points
+                .filter((_, i) => i % dotInterval === 0 || i === points.length - 1)
+                .map(p => `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="2.5" fill="${lineColor}" stroke="#1a1d27" stroke-width="1"/>`);
+
+            return `<svg viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" style="max-height:280px;">
+                <defs>
+                    <linearGradient id="${gradientId}" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stop-color="${lineColor}" stop-opacity="0.20"/>
+                        <stop offset="100%" stop-color="${lineColor}" stop-opacity="0.02"/>
+                    </linearGradient>
+                </defs>
+                ${yLabels}
+                ${xLabels.join('\n')}
+                <polygon points="${fillPoints}" fill="url(#${gradientId})"/>
+                <polyline points="${polyline}" fill="none" stroke="${lineColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                ${dots.join('\n')}
+            </svg>`;
+        }
+
         // -- Trending -----------------------------------------------------
 
         async function loadTrending() {
@@ -685,6 +838,8 @@
             document.getElementById('statsGrid').innerHTML = '<div class="stat-cell"><span class="stat-label">Loading...</span></div>';
             document.getElementById('trendChartSection').style.display = 'none';
             document.getElementById('trendChartContainer').innerHTML = '';
+            document.getElementById('priceChartSection').style.display = 'none';
+            document.getElementById('priceChartContainer').innerHTML = '';
             document.getElementById('historyList').innerHTML = '';
             panel.classList.add('visible');
             panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -698,6 +853,9 @@
             if (stats.status === 'fulfilled' && stats.value) renderStats(stats.value);
             else document.getElementById('statsGrid').innerHTML = '<div class="stat-cell"><span class="stat-label">No stats available</span></div>';
 
+            // Determine the date range from sentiment data for chart synchronization
+            let sentimentDateRange = null;
+
             // Render 30-day trend chart
             if (trendHistory.status === 'fulfilled' && trendHistory.value && trendHistory.value.items) {
                 const chartData = trendHistory.value.items.map(h => ({ date: h.analyzedAt, score: h.score }));
@@ -705,6 +863,36 @@
                 const container = document.getElementById('trendChartContainer');
                 container.innerHTML = createTrendChart(chartData);
                 section.style.display = 'block';
+
+                // Calculate the date range covered by sentiment data
+                if (chartData.length >= 2) {
+                    const sortedDates = chartData.map(d => new Date(d.date)).sort((a, b) => a - b);
+                    sentimentDateRange = { min: sortedDates[0], max: sortedDates[sortedDates.length - 1] };
+                }
+            }
+
+            // Render price chart with the same time period
+            try {
+                const range = sentimentDateRange ? '1mo' : '5d';
+                const interval = sentimentDateRange ? '1d' : '1h';
+                const priceUrl = `${API}/api/prices/${encodeURIComponent(symbol)}/chart?range=${range}&interval=${interval}`;
+                const priceRes = await fetch(priceUrl);
+                if (priceRes.ok) {
+                    const priceData = await priceRes.json();
+                    const result = priceData.chart.result;
+                    if (result && result.length) {
+                        const timestamps = result[0].timestamp;
+                        const closes = result[0].indicators.quote[0].close;
+                        if (timestamps && closes) {
+                            const priceSection = document.getElementById('priceChartSection');
+                            const priceContainer = document.getElementById('priceChartContainer');
+                            priceContainer.innerHTML = createPriceChart(timestamps, closes, sentimentDateRange);
+                            priceSection.style.display = 'block';
+                        }
+                    }
+                }
+            } catch (e) {
+                // Price chart is non-critical — silently skip on error
             }
 
             if (history.status === 'fulfilled' && history.value) renderHistory(history.value.items);
@@ -781,6 +969,7 @@
                             <span class="history-time">${formatDate(h.analyzedAt)}</span>
                         </div>
                         ${h.keyReasons && h.keyReasons.length ? `<div class="history-reasons">${h.keyReasons.join(' &middot; ')}</div>` : ''}
+                        ${h.sourceUrl ? `<div class="history-source"><a href="${escapeHtml(h.sourceUrl)}" target="_blank" rel="noopener noreferrer">${extractDomain(h.sourceUrl)}</a></div>` : ''}
                     </div>`;
                 }).join('');
         }
@@ -810,6 +999,21 @@
 
         function hideError() {
             document.getElementById('errorBanner').classList.remove('visible');
+        }
+
+        function extractDomain(url) {
+            try {
+                const hostname = new URL(url).hostname.replace(/^www\./, '');
+                return hostname;
+            } catch {
+                return 'Source';
+            }
+        }
+
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.appendChild(document.createTextNode(str));
+            return div.innerHTML;
         }
 
         function formatDate(iso) {
