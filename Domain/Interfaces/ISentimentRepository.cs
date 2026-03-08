@@ -18,6 +18,7 @@ public interface ISentimentRepository
         int pageSize,
         DateTime? from,
         DateTime? to,
+        bool excludeNeutral = false,
         CancellationToken ct = default);
 
     Task<IReadOnlyList<SentimentAnalysis>> GetForStatsAsync(
