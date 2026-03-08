@@ -1,0 +1,1 @@
+Always use search/replace blocks for file edits. Never output entire files. Only output the lines that need to change with surrounding context.
