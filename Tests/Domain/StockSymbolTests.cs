@@ -50,4 +50,17 @@ public class StockSymbolTests
         var b = new StockSymbol("aapl"); // uppercased in constructor
         a.Should().Be(b);
     }
+
+    [Theory]
+    [InlineData("BTC-USD", true)]
+    [InlineData("ETH-USD", true)]
+    [InlineData("SOL-USD", true)]
+    [InlineData("AAPL", false)]
+    [InlineData("MSFT", false)]
+    [InlineData("GOOGL", false)]
+    public void IsCrypto_DetectsCryptoSymbolsCorrectly(string input, bool expected)
+    {
+        var symbol = new StockSymbol(input);
+        symbol.IsCrypto.Should().Be(expected);
+    }
 }
