@@ -2,6 +2,8 @@ using API.Controllers.DTOs;
 using Application.Features.Symbols;
 using Application.Features.Symbols.Commands.AddTrackedSymbol;
 using Application.Features.Symbols.Commands.RemoveTrackedSymbol;
+using Application.Features.Symbols.Commands.SeedSymbols;
+using Application.Features.Symbols.Queries.GetSymbolGroups;
 using Application.Features.Symbols.Queries.GetTrackedSymbols;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
@@ -54,5 +56,29 @@ public class SymbolsController(ISender sender) : ControllerBase
     {
         await sender.Send(new RemoveTrackedSymbolCommand(symbol), ct);
         return NoContent();
+    }
+
+    /// <summary>
+    /// Bulk-seed symbols from a predefined group (e.g. us-bluechip, crypto, tech, etfs, asx-bluechip).
+    /// Duplicates are silently skipped — safe to call multiple times.
+    /// </summary>
+    [HttpPost("seed")]
+    [ProducesResponseType(typeof(SeedSymbolsResultDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> Seed([FromQuery] string group, CancellationToken ct)
+    {
+        var result = await sender.Send(new SeedSymbolsCommand(group), ct);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// List all available symbol groups that can be used with the seed endpoint.
+    /// </summary>
+    [HttpGet("groups")]
+    [ProducesResponseType(typeof(IReadOnlyList<SymbolGroupDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetGroups(CancellationToken ct)
+    {
+        var result = await sender.Send(new GetSymbolGroupsQuery(), ct);
+        return Ok(result);
     }
 }
