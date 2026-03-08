@@ -93,6 +93,7 @@ public static class DependencyInjection
             return new CompositeNewsSourceService(sources, log);
         });
 
+        services.AddHostedService<SymbolSeedingWorker>();
         services.AddHostedService<SentimentIngestionWorker>();
         services.AddHostedService<SentimentAnalysisWorker>();
 
