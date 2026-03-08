@@ -30,6 +30,18 @@ public class ArticleRelevanceFilter(ILogger<ArticleRelevanceFilter> logger) : IA
     ];
 
     /// <summary>
+    /// Reddit subreddits that are relevant to financial sentiment analysis.
+    /// Posts from other subreddits are filtered out to prevent noise.
+    /// </summary>
+    private static readonly string[] AllowedRedditSubreddits =
+    [
+        "/r/stocks", "/r/wallstreetbets", "/r/investing", "/r/stockmarket",
+        "/r/options", "/r/finance", "/r/cryptocurrency", "/r/bitcoin",
+        "/r/economy", "/r/valueinvesting", "/r/dividends", "/r/securityanalysis",
+        "/r/personalfinance", "/r/financialindependence"
+    ];
+
+    /// <summary>
     /// Financial terms that signal an article is worth analyzing.
     /// Kept broad and lowercase for case-insensitive matching.
     /// </summary>
@@ -91,7 +103,15 @@ public class ArticleRelevanceFilter(ILogger<ArticleRelevanceFilter> logger) : IA
             return true; // No URL to check — keep the article
 
         var lowerUrl = article.SourceUrl.ToLowerInvariant();
-        return !IrrelevantUrlPatterns.Any(pattern => lowerUrl.Contains(pattern));
+
+        if (IrrelevantUrlPatterns.Any(pattern => lowerUrl.Contains(pattern)))
+            return false;
+
+        // Reddit posts must be from a finance-related subreddit
+        if (lowerUrl.Contains("reddit.com/r/"))
+            return AllowedRedditSubreddits.Any(sub => lowerUrl.Contains(sub));
+
+        return true;
     }
 
     internal static bool PassesKeywordCheck(ArticleToAnalyze article)

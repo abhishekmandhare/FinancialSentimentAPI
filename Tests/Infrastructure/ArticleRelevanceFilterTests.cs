@@ -224,4 +224,50 @@ public class ArticleRelevanceFilterTests
             symbol: "GOOGL");
         ArticleRelevanceFilter.PassesKeywordCheck(article).Should().BeTrue();
     }
+
+    // --- Reddit subreddit filter ---
+
+    [Fact]
+    public void IsRelevant_RedditStocksSubreddit_ReturnsTrue()
+    {
+        var article = MakeArticle(
+            "SPY hits all-time high as market rallies on strong earnings and economic growth outlook this quarter.",
+            symbol: "SPY",
+            url: "https://www.reddit.com/r/stocks/comments/abc123/spy_hits_all_time_high/");
+        _filter.IsRelevant(article).Should().BeTrue();
+    }
+
+    [Fact]
+    public void IsRelevant_RedditIrrelevantSubreddit_ReturnsFalse()
+    {
+        var article = MakeArticle(
+            "Finally some luck! Found a rare game at the thrift store today for only five dollars, what a great buy.",
+            symbol: "SPY",
+            url: "https://www.reddit.com/r/gamecollecting/comments/1rnmzh0/finally_some_luck/");
+        _filter.IsRelevant(article).Should().BeFalse();
+    }
+
+    [Fact]
+    public void IsRelevant_RedditWallStreetBets_ReturnsTrue()
+    {
+        var article = MakeArticle(
+            "YOLO'd my savings into SPY calls, this market rally is insane and earnings season is looking bullish overall.",
+            symbol: "SPY",
+            url: "https://www.reddit.com/r/wallstreetbets/comments/xyz789/yolo_spy/");
+        _filter.IsRelevant(article).Should().BeTrue();
+    }
+
+    [Fact]
+    public void PassesUrlFilter_RedditAllowedSubreddit_ReturnsTrue()
+    {
+        var article = MakeArticle("text", url: "https://www.reddit.com/r/investing/comments/abc/post");
+        ArticleRelevanceFilter.PassesUrlFilter(article).Should().BeTrue();
+    }
+
+    [Fact]
+    public void PassesUrlFilter_RedditDisallowedSubreddit_ReturnsFalse()
+    {
+        var article = MakeArticle("text", url: "https://www.reddit.com/r/gaming/comments/abc/post");
+        ArticleRelevanceFilter.PassesUrlFilter(article).Should().BeFalse();
+    }
 }

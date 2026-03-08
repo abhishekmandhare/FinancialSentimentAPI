@@ -27,7 +27,7 @@ public class RedditNewsSourceService(
         DateTime since,
         CancellationToken ct = default)
     {
-        var url = $"https://www.reddit.com/r/stocks/search.rss?q={Uri.EscapeDataString(symbol.Value)}&sort=new&t=day";
+        var url = $"https://www.reddit.com/r/stocks/search.rss?q={Uri.EscapeDataString(symbol.Value)}&restrict_sr=on&sort=new&t=day";
 
         try
         {
