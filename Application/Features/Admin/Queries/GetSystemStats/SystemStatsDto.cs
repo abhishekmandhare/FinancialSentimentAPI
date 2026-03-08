@@ -29,4 +29,5 @@ public record IngestionConfig(
 public record CapacityProjection(
     string EstimatedDbGrowthPerMonth,
     double EstimatedRowsPerMonth,
+    double AverageLatencySeconds,
     string AnalysisLatencyNote);

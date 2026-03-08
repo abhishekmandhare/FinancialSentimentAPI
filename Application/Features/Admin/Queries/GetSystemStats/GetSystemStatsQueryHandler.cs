@@ -25,6 +25,7 @@ public class GetSystemStatsQueryHandler(
         var last24HCount = await statsRepository.GetAnalysesCountSinceAsync(now.AddHours(-24), ct);
         var trackedSymbolCount = await statsRepository.GetTrackedSymbolCountAsync(ct);
         var analyzedSymbols = await statsRepository.GetDistinctAnalyzedSymbolsAsync(ct);
+        var avgLatencySeconds = await statsRepository.GetAverageAnalysisLatencySecondsAsync(50, ct);
 
         var counts = new AnalysisCounts(totalCount, lastHourCount, last24HCount);
 
@@ -47,12 +48,17 @@ public class GetSystemStatsQueryHandler(
         var bytesPerMonth = rowsPerMonth * EstimatedAvgRowSizeBytes;
         var mbPerMonth = bytesPerMonth / (1024.0 * 1024.0);
 
+        var latencyNote = avgLatencySeconds > 0
+            ? $"Average {avgLatencySeconds}s per analysis (last 50)"
+            : totalCount > 0
+                ? "No duration data recorded yet"
+                : "No analyses yet -- latency data unavailable";
+
         var projection = new CapacityProjection(
             EstimatedDbGrowthPerMonth: $"{Math.Round(mbPerMonth, 2)} MB",
             EstimatedRowsPerMonth: rowsPerMonth,
-            AnalysisLatencyNote: totalCount > 0
-                ? "See Ollama throughput -- ~62s per analysis on llama3 (8B)"
-                : "No analyses yet -- latency data unavailable");
+            AverageLatencySeconds: avgLatencySeconds,
+            AnalysisLatencyNote: latencyNote);
 
         return new SystemStatsDto(counts, throughput, symbols, ingestion, projection);
     }

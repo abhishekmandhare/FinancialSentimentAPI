@@ -111,16 +111,33 @@ public class GetSystemStatsHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WithAnalyses_ReturnsOllamaLatencyNote()
+    public async Task Handle_WithAnalysesButNoLatencyData_ReturnsNoDurationNote()
     {
         _statsRepository.GetTotalAnalysesCountAsync(Arg.Any<CancellationToken>()).Returns(50);
         _statsRepository.GetAnalysesCountSinceAsync(Arg.Any<DateTime>(), Arg.Any<CancellationToken>()).Returns(10);
         _statsRepository.GetTrackedSymbolCountAsync(Arg.Any<CancellationToken>()).Returns(5);
         _statsRepository.GetDistinctAnalyzedSymbolsAsync(Arg.Any<CancellationToken>()).Returns(new List<string> { "AAPL" });
+        _statsRepository.GetAverageAnalysisLatencySecondsAsync(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(0.0);
 
         var result = await CreateHandler().Handle(new GetSystemStatsQuery(), CancellationToken.None);
 
-        result.Projection.AnalysisLatencyNote.Should().Contain("Ollama");
+        result.Projection.AnalysisLatencyNote.Should().Contain("No duration data");
+        result.Projection.AverageLatencySeconds.Should().Be(0.0);
+    }
+
+    [Fact]
+    public async Task Handle_WithLatencyData_ReturnsAverageInNote()
+    {
+        _statsRepository.GetTotalAnalysesCountAsync(Arg.Any<CancellationToken>()).Returns(50);
+        _statsRepository.GetAnalysesCountSinceAsync(Arg.Any<DateTime>(), Arg.Any<CancellationToken>()).Returns(10);
+        _statsRepository.GetTrackedSymbolCountAsync(Arg.Any<CancellationToken>()).Returns(5);
+        _statsRepository.GetDistinctAnalyzedSymbolsAsync(Arg.Any<CancellationToken>()).Returns(new List<string> { "AAPL" });
+        _statsRepository.GetAverageAnalysisLatencySecondsAsync(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(62.5);
+
+        var result = await CreateHandler().Handle(new GetSystemStatsQuery(), CancellationToken.None);
+
+        result.Projection.AverageLatencySeconds.Should().Be(62.5);
+        result.Projection.AnalysisLatencyNote.Should().Contain("Average 62.5s per analysis");
     }
 
     [Fact]
@@ -138,5 +155,6 @@ public class GetSystemStatsHandlerTests
         await _statsRepository.Received(2).GetAnalysesCountSinceAsync(Arg.Any<DateTime>(), Arg.Any<CancellationToken>());
         await _statsRepository.Received(1).GetTrackedSymbolCountAsync(Arg.Any<CancellationToken>());
         await _statsRepository.Received(1).GetDistinctAnalyzedSymbolsAsync(Arg.Any<CancellationToken>());
+        await _statsRepository.Received(1).GetAverageAnalysisLatencySecondsAsync(Arg.Any<int>(), Arg.Any<CancellationToken>());
     }
 }

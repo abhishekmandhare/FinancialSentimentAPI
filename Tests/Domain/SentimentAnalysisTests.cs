@@ -94,4 +94,27 @@ public class SentimentAnalysisTests
         var b = CreateValid();
         a.Id.Should().NotBe(b.Id);
     }
+
+    [Fact]
+    public void Create_WithoutDurationMs_DefaultsToNull()
+    {
+        var analysis = CreateValid();
+        analysis.DurationMs.Should().BeNull();
+    }
+
+    [Fact]
+    public void Create_WithDurationMs_SetsDuration()
+    {
+        var analysis = SentimentAnalysis.Create(
+            Symbol,
+            "Apple crushed Q4 earnings expectations.",
+            "https://reuters.com/article",
+            0.8,
+            0.9,
+            ["Strong revenue", "Beat estimates"],
+            "claude-haiku-4-5-20251001",
+            durationMs: 62000);
+
+        analysis.DurationMs.Should().Be(62000);
+    }
 }

@@ -85,6 +85,9 @@ public class SentimentAnalysisConfiguration : IEntityTypeConfiguration<Sentiment
             .HasColumnName("AnalyzedAt")
             .IsRequired();
 
+        builder.Property(a => a.DurationMs)
+            .HasColumnName("DurationMs");
+
         // Critical for query performance — all history + stats queries hit this index.
         builder.HasIndex(a => new { a.Symbol, a.AnalyzedAt })
             .HasDatabaseName("IX_SentimentAnalyses_Symbol_AnalyzedAt");

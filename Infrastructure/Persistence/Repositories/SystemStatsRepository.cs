@@ -13,9 +13,13 @@ public class SystemStatsRepository(AppDbContext context) : ISystemStatsRepositor
 
     public async Task<double> GetAverageAnalysisLatencySecondsAsync(int recentCount, CancellationToken ct = default)
     {
-        // We don't currently store analysis duration per-row,
-        // so this returns 0. Future: add a DurationMs column to SentimentAnalysis.
-        return 0.0;
+        var avg = await context.SentimentAnalyses
+            .Where(a => a.DurationMs != null)
+            .OrderByDescending(a => a.AnalyzedAt)
+            .Take(recentCount)
+            .AverageAsync(a => (double?)a.DurationMs, ct);
+
+        return avg.HasValue ? Math.Round(avg.Value / 1000.0, 2) : 0.0;
     }
 
     public async Task<int> GetTrackedSymbolCountAsync(CancellationToken ct = default)

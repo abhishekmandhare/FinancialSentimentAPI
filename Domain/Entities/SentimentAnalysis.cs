@@ -30,6 +30,7 @@ public class SentimentAnalysis
     public List<string> KeyReasons { get; private set; } = [];
     public string ModelVersion { get; private set; } = null!;
     public DateTime AnalyzedAt { get; private set; }
+    public long? DurationMs { get; private set; }
 
     public IReadOnlyList<IDomainEvent> DomainEvents => _domainEvents.AsReadOnly();
 
@@ -45,7 +46,8 @@ public class SentimentAnalysis
         double aiScore,
         double confidence,
         IReadOnlyList<string> keyReasons,
-        string modelVersion)
+        string modelVersion,
+        long? durationMs = null)
     {
         if (string.IsNullOrWhiteSpace(text))
             throw new DomainException("Analysis text cannot be empty.");
@@ -72,7 +74,8 @@ public class SentimentAnalysis
             Confidence   = confidence,
             KeyReasons   = [.. keyReasons],
             ModelVersion = modelVersion,
-            AnalyzedAt   = DateTime.UtcNow
+            AnalyzedAt   = DateTime.UtcNow,
+            DurationMs   = durationMs
         };
 
         analysis._domainEvents.Add(new SentimentAnalysisCreatedEvent(analysis.Id, symbol));
