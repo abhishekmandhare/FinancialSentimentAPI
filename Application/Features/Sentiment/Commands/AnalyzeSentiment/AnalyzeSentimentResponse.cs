@@ -12,4 +12,5 @@ public record AnalyzeSentimentResponse(
     double Confidence,
     IReadOnlyList<string> KeyReasons,
     string ModelVersion,
-    DateTime AnalyzedAt);
+    DateTime AnalyzedAt,
+    long? DurationMs);

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Application.Services;
 using Domain.Entities;
 using Domain.Interfaces;
@@ -36,7 +37,9 @@ public class AnalyzeSentimentCommandHandler(
     {
         var symbol = new StockSymbol(command.Symbol);
 
+        var sw = Stopwatch.StartNew();
         var aiResult = await aiService.AnalyzeAsync(command.Text, symbol, ct);
+        sw.Stop();
 
         var analysis = SentimentAnalysis.Create(
             symbol,
@@ -45,7 +48,8 @@ public class AnalyzeSentimentCommandHandler(
             aiResult.Score,
             aiResult.Confidence,
             aiResult.KeyReasons,
-            aiResult.ModelVersion);
+            aiResult.ModelVersion,
+            durationMs: sw.ElapsedMilliseconds);
 
         await repository.AddAsync(analysis, ct);
 
@@ -66,6 +70,7 @@ public class AnalyzeSentimentCommandHandler(
             analysis.Confidence,
             analysis.KeyReasons,
             analysis.ModelVersion,
-            analysis.AnalyzedAt);
+            analysis.AnalyzedAt,
+            analysis.DurationMs);
     }
 }

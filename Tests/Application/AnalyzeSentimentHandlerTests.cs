@@ -38,6 +38,8 @@ public class AnalyzeSentimentHandlerTests
         response.Label.Should().Be("Positive");
         response.Confidence.Should().Be(0.9);
         response.KeyReasons.Should().HaveCount(2);
+        response.DurationMs.Should().NotBeNull("AI analysis should record elapsed time");
+        response.DurationMs.Should().BeGreaterThanOrEqualTo(0);
     }
 
     [Fact]

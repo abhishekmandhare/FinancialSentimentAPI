@@ -14,7 +14,7 @@ public class ValidationBehaviorTests
 
     private Task<AnalyzeSentimentResponse> FakeNext() =>
         Task.FromResult(new AnalyzeSentimentResponse(
-            Guid.NewGuid(), "AAPL", 0.5, "Positive", 0.9, [], "model", DateTime.UtcNow));
+            Guid.NewGuid(), "AAPL", 0.5, "Positive", 0.9, [], "model", DateTime.UtcNow, 1500));
 
     [Fact]
     public async Task Handle_ValidCommand_CallsNext()
