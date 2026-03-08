@@ -52,10 +52,11 @@ public class SentimentController(ISender sender) : ControllerBase
         [FromQuery] int pageSize = 20,
         [FromQuery] DateTime? from = null,
         [FromQuery] DateTime? to = null,
+        [FromQuery] bool includeNeutral = false,
         CancellationToken ct = default)
     {
         var result = await sender.Send(
-            new GetSentimentHistoryQuery(symbol, page, pageSize, from, to), ct);
+            new GetSentimentHistoryQuery(symbol, page, pageSize, from, to, ExcludeNeutral: !includeNeutral), ct);
 
         return Ok(result);
     }

@@ -1,6 +1,7 @@
 using Application.Common.Models;
 using Application.Features.Sentiment.Queries.GetSentimentHistory;
 using Domain.Entities;
+using Domain.Enums;
 using Domain.Interfaces;
 using Domain.ValueObjects;
 using FluentAssertions;
@@ -14,9 +15,9 @@ public class GetSentimentHistoryHandlerTests
 
     private GetSentimentHistoryQueryHandler CreateHandler() => new(_repository);
 
-    private static SentimentAnalysis CreateAnalysis(double score = 0.5) =>
+    private static SentimentAnalysis CreateAnalysis(string symbol = "AAPL", double score = 0.5) =>
         SentimentAnalysis.Create(
-            new StockSymbol("AAPL"),
+            new StockSymbol(symbol),
             "Apple reported strong earnings.",
             "https://example.com/article",
             score,
@@ -24,16 +25,66 @@ public class GetSentimentHistoryHandlerTests
             ["Strong revenue"],
             "test-model-v1");
 
+    private void SetupRepository(IReadOnlyList<SentimentAnalysis>? items = null, int totalCount = 0)
+    {
+        _repository.GetHistoryAsync(
+                Arg.Any<StockSymbol>(), Arg.Any<int>(), Arg.Any<int>(),
+                Arg.Any<DateTime?>(), Arg.Any<DateTime?>(),
+                Arg.Any<bool>(), Arg.Any<CancellationToken>())
+            .Returns((items ?? Array.Empty<SentimentAnalysis>(), totalCount));
+    }
+
+    [Fact]
+    public async Task Handle_ExcludeNeutralTrue_PassesExcludeNeutralToRepository()
+    {
+        SetupRepository();
+
+        var query = new GetSentimentHistoryQuery("AAPL", ExcludeNeutral: true);
+        await CreateHandler().Handle(query, CancellationToken.None);
+
+        await _repository.Received(1).GetHistoryAsync(
+            Arg.Is<StockSymbol>(s => s.Value == "AAPL"),
+            1, 20, null, null,
+            true,
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Handle_ExcludeNeutralFalse_PassesFalseToRepository()
+    {
+        SetupRepository();
+
+        var query = new GetSentimentHistoryQuery("AAPL", ExcludeNeutral: false);
+        await CreateHandler().Handle(query, CancellationToken.None);
+
+        await _repository.Received(1).GetHistoryAsync(
+            Arg.Is<StockSymbol>(s => s.Value == "AAPL"),
+            1, 20, null, null,
+            false,
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Handle_DefaultQuery_ExcludesNeutralByDefault()
+    {
+        SetupRepository();
+
+        var query = new GetSentimentHistoryQuery("AAPL");
+        await CreateHandler().Handle(query, CancellationToken.None);
+
+        await _repository.Received(1).GetHistoryAsync(
+            Arg.Any<StockSymbol>(),
+            Arg.Any<int>(), Arg.Any<int>(),
+            Arg.Any<DateTime?>(), Arg.Any<DateTime?>(),
+            true,
+            Arg.Any<CancellationToken>());
+    }
+
     [Fact]
     public async Task Handle_ReturnsPagedResult_WithCorrectMapping()
     {
-        var analysis = CreateAnalysis(0.75);
-        var items = new List<SentimentAnalysis> { analysis };
-
-        _repository.GetHistoryAsync(
-                Arg.Any<StockSymbol>(), Arg.Any<int>(), Arg.Any<int>(),
-                Arg.Any<DateTime?>(), Arg.Any<DateTime?>(), Arg.Any<CancellationToken>())
-            .Returns((items.AsReadOnly() as IReadOnlyList<SentimentAnalysis>, 1));
+        var analysis = CreateAnalysis(score: 0.75);
+        SetupRepository([analysis], 1);
 
         var query = new GetSentimentHistoryQuery("AAPL");
         var result = await CreateHandler().Handle(query, CancellationToken.None);
@@ -55,10 +106,7 @@ public class GetSentimentHistoryHandlerTests
     [Fact]
     public async Task Handle_EmptyResult_ReturnsEmptyPage()
     {
-        _repository.GetHistoryAsync(
-                Arg.Any<StockSymbol>(), Arg.Any<int>(), Arg.Any<int>(),
-                Arg.Any<DateTime?>(), Arg.Any<DateTime?>(), Arg.Any<CancellationToken>())
-            .Returns((Array.Empty<SentimentAnalysis>() as IReadOnlyList<SentimentAnalysis>, 0));
+        SetupRepository();
 
         var query = new GetSentimentHistoryQuery("MSFT");
         var result = await CreateHandler().Handle(query, CancellationToken.None);
@@ -70,10 +118,7 @@ public class GetSentimentHistoryHandlerTests
     [Fact]
     public async Task Handle_PassesSymbolToRepository()
     {
-        _repository.GetHistoryAsync(
-                Arg.Any<StockSymbol>(), Arg.Any<int>(), Arg.Any<int>(),
-                Arg.Any<DateTime?>(), Arg.Any<DateTime?>(), Arg.Any<CancellationToken>())
-            .Returns((Array.Empty<SentimentAnalysis>() as IReadOnlyList<SentimentAnalysis>, 0));
+        SetupRepository();
 
         var query = new GetSentimentHistoryQuery("aapl");
         await CreateHandler().Handle(query, CancellationToken.None);
@@ -82,16 +127,14 @@ public class GetSentimentHistoryHandlerTests
             Arg.Is<StockSymbol>(s => s.Value == "AAPL"),
             Arg.Any<int>(), Arg.Any<int>(),
             Arg.Any<DateTime?>(), Arg.Any<DateTime?>(),
+            Arg.Any<bool>(),
             Arg.Any<CancellationToken>());
     }
 
     [Fact]
     public async Task Handle_PassesPaginationParameters()
     {
-        _repository.GetHistoryAsync(
-                Arg.Any<StockSymbol>(), Arg.Any<int>(), Arg.Any<int>(),
-                Arg.Any<DateTime?>(), Arg.Any<DateTime?>(), Arg.Any<CancellationToken>())
-            .Returns((Array.Empty<SentimentAnalysis>() as IReadOnlyList<SentimentAnalysis>, 0));
+        SetupRepository();
 
         var query = new GetSentimentHistoryQuery("AAPL", Page: 3, PageSize: 10);
         await CreateHandler().Handle(query, CancellationToken.None);
@@ -100,6 +143,7 @@ public class GetSentimentHistoryHandlerTests
             Arg.Any<StockSymbol>(),
             3, 10,
             Arg.Any<DateTime?>(), Arg.Any<DateTime?>(),
+            Arg.Any<bool>(),
             Arg.Any<CancellationToken>());
     }
 
@@ -109,10 +153,7 @@ public class GetSentimentHistoryHandlerTests
         var from = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         var to = new DateTime(2026, 3, 1, 0, 0, 0, DateTimeKind.Utc);
 
-        _repository.GetHistoryAsync(
-                Arg.Any<StockSymbol>(), Arg.Any<int>(), Arg.Any<int>(),
-                Arg.Any<DateTime?>(), Arg.Any<DateTime?>(), Arg.Any<CancellationToken>())
-            .Returns((Array.Empty<SentimentAnalysis>() as IReadOnlyList<SentimentAnalysis>, 0));
+        SetupRepository();
 
         var query = new GetSentimentHistoryQuery("AAPL", From: from, To: to);
         await CreateHandler().Handle(query, CancellationToken.None);
@@ -121,6 +162,7 @@ public class GetSentimentHistoryHandlerTests
             Arg.Any<StockSymbol>(),
             Arg.Any<int>(), Arg.Any<int>(),
             from, to,
+            Arg.Any<bool>(),
             Arg.Any<CancellationToken>());
     }
 
@@ -129,15 +171,12 @@ public class GetSentimentHistoryHandlerTests
     {
         var analyses = new List<SentimentAnalysis>
         {
-            CreateAnalysis(0.8),
-            CreateAnalysis(-0.5),
-            CreateAnalysis(0.0)
+            CreateAnalysis(score: 0.8),
+            CreateAnalysis(score: -0.5),
+            CreateAnalysis(score: 0.0)
         };
 
-        _repository.GetHistoryAsync(
-                Arg.Any<StockSymbol>(), Arg.Any<int>(), Arg.Any<int>(),
-                Arg.Any<DateTime?>(), Arg.Any<DateTime?>(), Arg.Any<CancellationToken>())
-            .Returns((analyses.AsReadOnly() as IReadOnlyList<SentimentAnalysis>, 3));
+        SetupRepository(analyses.AsReadOnly(), 3);
 
         var query = new GetSentimentHistoryQuery("AAPL");
         var result = await CreateHandler().Handle(query, CancellationToken.None);

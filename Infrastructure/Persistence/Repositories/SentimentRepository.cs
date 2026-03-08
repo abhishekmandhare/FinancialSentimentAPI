@@ -1,4 +1,5 @@
 using Domain.Entities;
+using Domain.Enums;
 using Domain.Interfaces;
 using Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
@@ -19,6 +20,7 @@ public class SentimentRepository(AppDbContext context) : ISentimentRepository
         int pageSize,
         DateTime? from,
         DateTime? to,
+        bool excludeNeutral = false,
         CancellationToken ct = default)
     {
         var query = context.SentimentAnalyses
@@ -29,6 +31,9 @@ public class SentimentRepository(AppDbContext context) : ISentimentRepository
 
         if (to.HasValue)
             query = query.Where(a => a.AnalyzedAt <= to.Value);
+
+        if (excludeNeutral)
+            query = query.Where(a => a.Label != SentimentLabel.Neutral);
 
         var totalCount = await query.CountAsync(ct);
 

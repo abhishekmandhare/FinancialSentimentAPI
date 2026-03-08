@@ -12,4 +12,5 @@ public record GetSentimentHistoryQuery(
     int Page = 1,
     int PageSize = 20,
     DateTime? From = null,
-    DateTime? To = null) : IRequest<PagedResult<SentimentHistoryDto>>;
+    DateTime? To = null,
+    bool ExcludeNeutral = true) : IRequest<PagedResult<SentimentHistoryDto>>;

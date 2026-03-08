@@ -20,6 +20,7 @@ public class GetSentimentHistoryQueryHandler(ISentimentRepository repository)
             query.PageSize,
             query.From,
             query.To,
+            query.ExcludeNeutral,
             ct);
 
         var dtos = items.Select(a => new SentimentHistoryDto(
