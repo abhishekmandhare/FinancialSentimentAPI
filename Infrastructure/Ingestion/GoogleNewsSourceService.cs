@@ -25,7 +25,8 @@ public class GoogleNewsSourceService(
         DateTime since,
         CancellationToken ct = default)
     {
-        var url = $"https://news.google.com/rss/search?q={Uri.EscapeDataString(symbol.Value + " stock news")}&hl=en-US&gl=US&ceid=US:en";
+        var suffix = symbol.IsCrypto ? "crypto news" : "stock news";
+        var url = $"https://news.google.com/rss/search?q={Uri.EscapeDataString(symbol.Value + " " + suffix)}&hl=en-US&gl=US&ceid=US:en";
 
         try
         {

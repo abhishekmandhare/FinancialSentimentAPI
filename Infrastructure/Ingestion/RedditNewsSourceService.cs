@@ -6,7 +6,8 @@ using Microsoft.Extensions.Logging;
 namespace Infrastructure.Ingestion;
 
 /// <summary>
-/// Fetches financial news via Reddit RSS search feed for r/stocks.
+/// Fetches financial news via Reddit RSS search feed.
+/// Searches /r/stocks for all symbols, and additionally /r/cryptocurrency for crypto symbols.
 /// No API key required — uses publicly available RSS endpoints.
 ///
 /// RSS XML structure (Atom-flavoured):
@@ -27,28 +28,40 @@ public class RedditNewsSourceService(
         DateTime since,
         CancellationToken ct = default)
     {
-        var url = $"https://www.reddit.com/r/stocks/search.rss?q={Uri.EscapeDataString(symbol.Value)}&restrict_sr=on&sort=new&t=day";
+        var subreddits = symbol.IsCrypto
+            ? new[] { "stocks", "cryptocurrency" }
+            : new[] { "stocks" };
 
-        try
+        var allArticles = new List<FetchedArticle>();
+
+        foreach (var subreddit in subreddits)
         {
-            var xml = await httpClient.GetStringAsync(url, ct);
-            return ParseAtom(xml, since);
+            var url = $"https://www.reddit.com/r/{subreddit}/search.rss?q={Uri.EscapeDataString(symbol.Value)}&restrict_sr=on&sort=new&t=day";
+
+            try
+            {
+                var xml = await httpClient.GetStringAsync(url, ct);
+                allArticles.AddRange(ParseAtom(xml, since));
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (HttpRequestException ex)
+            {
+                logger.LogWarning(ex, "Failed to fetch Reddit RSS feed from r/{Subreddit} for {Symbol}", subreddit, symbol.Value);
+            }
+            catch (XmlException ex)
+            {
+                logger.LogWarning(ex, "Failed to parse Reddit RSS feed from r/{Subreddit} for {Symbol}", subreddit, symbol.Value);
+            }
         }
-        catch (OperationCanceledException)
-        {
-            // Respect cancellation and allow it to propagate.
-            throw;
-        }
-        catch (HttpRequestException ex)
-        {
-            logger.LogWarning(ex, "Failed to fetch Reddit RSS feed for {Symbol}", symbol.Value);
-            return [];
-        }
-        catch (XmlException ex)
-        {
-            logger.LogWarning(ex, "Failed to parse Reddit RSS feed for {Symbol}", symbol.Value);
-            return [];
-        }
+
+        // Deduplicate by URL
+        return allArticles
+            .GroupBy(a => a.SourceUrl)
+            .Select(g => g.First())
+            .ToList();
     }
 
     private static List<FetchedArticle> ParseAtom(string xml, DateTime since)

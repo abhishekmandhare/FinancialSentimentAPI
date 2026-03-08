@@ -15,6 +15,11 @@ public record StockSymbol
         Value = value.ToUpperInvariant();
     }
 
+    /// <summary>
+    /// Returns true for cryptocurrency symbols (e.g. BTC-USD, ETH-USD).
+    /// </summary>
+    public bool IsCrypto => Value.EndsWith("-USD", StringComparison.OrdinalIgnoreCase);
+
     public override string ToString() => Value;
 
     public static implicit operator string(StockSymbol symbol) => symbol.Value;
