@@ -1,0 +1,227 @@
+using Application.Services;
+using FluentAssertions;
+using Infrastructure.Ingestion;
+using Microsoft.Extensions.Logging;
+using NSubstitute;
+
+namespace Tests.Infrastructure;
+
+public class ArticleRelevanceFilterTests
+{
+    private readonly ArticleRelevanceFilter _filter;
+
+    public ArticleRelevanceFilterTests()
+    {
+        var logger = Substitute.For<ILogger<ArticleRelevanceFilter>>();
+        _filter = new ArticleRelevanceFilter(logger);
+    }
+
+    private static ArticleToAnalyze MakeArticle(
+        string text,
+        string symbol = "AAPL",
+        string? url = "https://finance.yahoo.com/news/article-1") =>
+        new(symbol, text, url, DateTime.UtcNow);
+
+    // --- Minimum content length ---
+
+    [Fact]
+    public void IsRelevant_ShortContent_ReturnsFalse()
+    {
+        var article = MakeArticle("Short text");
+        _filter.IsRelevant(article).Should().BeFalse();
+    }
+
+    [Fact]
+    public void IsRelevant_EmptyContent_ReturnsFalse()
+    {
+        var article = MakeArticle(string.Empty);
+        _filter.IsRelevant(article).Should().BeFalse();
+    }
+
+    [Fact]
+    public void IsRelevant_ExactlyMinLength_WithKeyword_ReturnsTrue()
+    {
+        // Build a string that is exactly MinContentLength and contains a financial keyword
+        var text = "AAPL stock " + new string('x', ArticleRelevanceFilter.MinContentLength - 11);
+        text.Length.Should().Be(ArticleRelevanceFilter.MinContentLength);
+
+        var article = MakeArticle(text);
+        _filter.IsRelevant(article).Should().BeTrue();
+    }
+
+    // --- URL pattern filter ---
+
+    [Theory]
+    [InlineData("https://example.com/events/campus-fair")]
+    [InlineData("https://example.com/register?id=123")]
+    [InlineData("https://example.com/registration/event")]
+    [InlineData("https://example.com/login")]
+    [InlineData("https://example.com/signin")]
+    [InlineData("https://example.com/careers/apply")]
+    [InlineData("https://example.com/jobs/listing")]
+    [InlineData("https://example.com/calendar/2026")]
+    [InlineData("https://example.com/campus/news")]
+    [InlineData("https://example.com/subscribe")]
+    [InlineData("https://example.com/newsletter")]
+    public void IsRelevant_IrrelevantUrl_ReturnsFalse(string url)
+    {
+        var article = MakeArticle(
+            "Apple stock surges on strong quarterly earnings report, beating analyst estimates significantly.",
+            url: url);
+        _filter.IsRelevant(article).Should().BeFalse();
+    }
+
+    [Fact]
+    public void IsRelevant_NullUrl_DoesNotFilter()
+    {
+        var article = MakeArticle(
+            "Apple stock surges on strong quarterly earnings report, beating analyst estimates significantly.",
+            url: null);
+        _filter.IsRelevant(article).Should().BeTrue();
+    }
+
+    [Fact]
+    public void IsRelevant_NormalNewsUrl_DoesNotFilter()
+    {
+        var article = MakeArticle(
+            "Apple stock surges on strong quarterly earnings report, beating analyst estimates significantly.",
+            url: "https://finance.yahoo.com/news/apple-earnings-2026");
+        _filter.IsRelevant(article).Should().BeTrue();
+    }
+
+    // --- Keyword check ---
+
+    [Fact]
+    public void IsRelevant_ContainsSymbol_ReturnsTrue()
+    {
+        var article = MakeArticle(
+            "AAPL continues its upward trend amid positive market conditions and increased consumer demand.",
+            symbol: "AAPL");
+        _filter.IsRelevant(article).Should().BeTrue();
+    }
+
+    [Fact]
+    public void IsRelevant_ContainsFinancialKeywords_ReturnsTrue()
+    {
+        var article = MakeArticle(
+            "The company reported strong quarterly earnings, with revenue exceeding analyst expectations by a wide margin.");
+        _filter.IsRelevant(article).Should().BeTrue();
+    }
+
+    [Fact]
+    public void IsRelevant_StockPriceArticle_ReturnsTrue()
+    {
+        var article = MakeArticle(
+            "Apple shares surged 5% after the company announced a record dividend and a massive stock buyback program.");
+        _filter.IsRelevant(article).Should().BeTrue();
+    }
+
+    [Fact]
+    public void IsRelevant_AnalystUpgrade_ReturnsTrue()
+    {
+        var article = MakeArticle(
+            "Goldman Sachs analyst upgrades Apple with a new price target of $250, citing strong iPhone demand outlook.");
+        _filter.IsRelevant(article).Should().BeTrue();
+    }
+
+    [Fact]
+    public void IsRelevant_CampusEvent_ReturnsFalse()
+    {
+        var article = MakeArticle(
+            "Join us for the annual spring campus carnival this Saturday. Food, games, and live music for all students and families.",
+            url: "https://example.com/news/campus-carnival");
+        _filter.IsRelevant(article).Should().BeFalse();
+    }
+
+    [Fact]
+    public void IsRelevant_SportsArticle_ReturnsFalse()
+    {
+        var article = MakeArticle(
+            "The university football team defeated their rivals in a thrilling overtime game, securing their spot in the playoffs.");
+        _filter.IsRelevant(article).Should().BeFalse();
+    }
+
+    [Fact]
+    public void IsRelevant_RecipeArticle_ReturnsFalse()
+    {
+        var article = MakeArticle(
+            "Try this delicious homemade pasta recipe with fresh tomatoes, basil, and mozzarella cheese for a perfect Italian dinner.");
+        _filter.IsRelevant(article).Should().BeFalse();
+    }
+
+    [Fact]
+    public void IsRelevant_MergerAcquisition_ReturnsTrue()
+    {
+        var article = MakeArticle(
+            "The proposed merger between the two tech giants faces regulatory scrutiny from the FTC and European regulators.");
+        _filter.IsRelevant(article).Should().BeTrue();
+    }
+
+    [Fact]
+    public void IsRelevant_FedInterestRate_ReturnsTrue()
+    {
+        var article = MakeArticle(
+            "The Fed is expected to hold interest rates steady at its next meeting, according to market expectations and recent data.");
+        _filter.IsRelevant(article).Should().BeTrue();
+    }
+
+    // --- Case insensitivity ---
+
+    [Fact]
+    public void IsRelevant_KeywordsCaseInsensitive_ReturnsTrue()
+    {
+        var article = MakeArticle(
+            "QUARTERLY EARNINGS exceeded expectations with REVENUE growth of 15% year-over-year across all segments.");
+        _filter.IsRelevant(article).Should().BeTrue();
+    }
+
+    [Fact]
+    public void IsRelevant_SymbolCaseInsensitive_ReturnsTrue()
+    {
+        var article = MakeArticle(
+            "According to analysts, aapl remains a strong buy despite market volatility and macroeconomic uncertainty today.",
+            symbol: "AAPL");
+        _filter.IsRelevant(article).Should().BeTrue();
+    }
+
+    // --- Static helper method tests ---
+
+    [Fact]
+    public void PassesMinimumLength_BelowThreshold_ReturnsFalse()
+    {
+        var article = MakeArticle("Too short");
+        ArticleRelevanceFilter.PassesMinimumLength(article).Should().BeFalse();
+    }
+
+    [Fact]
+    public void PassesUrlFilter_CleanUrl_ReturnsTrue()
+    {
+        var article = MakeArticle("text", url: "https://reuters.com/article/apple-earnings");
+        ArticleRelevanceFilter.PassesUrlFilter(article).Should().BeTrue();
+    }
+
+    [Fact]
+    public void PassesUrlFilter_EventUrl_ReturnsFalse()
+    {
+        var article = MakeArticle("text", url: "https://example.com/events/signup");
+        ArticleRelevanceFilter.PassesUrlFilter(article).Should().BeFalse();
+    }
+
+    [Fact]
+    public void PassesKeywordCheck_NoFinancialContent_ReturnsFalse()
+    {
+        var article = MakeArticle(
+            "Beautiful sunny weather expected this weekend with clear skies and mild temperatures across the region.",
+            symbol: "XYZ");
+        ArticleRelevanceFilter.PassesKeywordCheck(article).Should().BeFalse();
+    }
+
+    [Fact]
+    public void PassesKeywordCheck_WithSymbolInText_ReturnsTrue()
+    {
+        var article = MakeArticle(
+            "According to experts, GOOGL is poised for a breakout this quarter based on recent performance indicators.",
+            symbol: "GOOGL");
+        ArticleRelevanceFilter.PassesKeywordCheck(article).Should().BeTrue();
+    }
+}

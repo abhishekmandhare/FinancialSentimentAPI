@@ -21,6 +21,7 @@ namespace Infrastructure.Ingestion;
 public class SentimentIngestionWorker(
     IServiceScopeFactory scopeFactory,
     IArticleQueue articleQueue,
+    IArticleRelevanceFilter relevanceFilter,
     IOptionsMonitor<IngestionOptions> options,
     ILogger<SentimentIngestionWorker> logger)
     : BackgroundService
@@ -61,6 +62,8 @@ public class SentimentIngestionWorker(
                 var articles = await newsSourceService.FetchArticlesAsync(symbol, since, ct);
                 var newCount = 0;
 
+                var filteredCount = 0;
+
                 foreach (var article in articles)
                 {
                     var key = article.SourceUrl ?? article.Text.GetHashCode().ToString();
@@ -70,12 +73,21 @@ public class SentimentIngestionWorker(
 
                     _processedUrls.Add(key);
 
-                    await articleQueue.PublishAsync(
-                        new ArticleToAnalyze(symbol.Value, article.Text, article.SourceUrl, article.PublishedAt),
-                        ct);
+                    var candidate = new ArticleToAnalyze(symbol.Value, article.Text, article.SourceUrl, article.PublishedAt);
+
+                    if (!relevanceFilter.IsRelevant(candidate))
+                    {
+                        filteredCount++;
+                        continue;
+                    }
+
+                    await articleQueue.PublishAsync(candidate, ct);
 
                     newCount++;
                 }
+
+                if (filteredCount > 0)
+                    logger.LogInformation("Filtered {FilteredCount} irrelevant articles for {Symbol}", filteredCount, symbol.Value);
 
                 if (newCount > 0)
                     logger.LogInformation("Queued {Count} new articles for {Symbol}", newCount, symbol.Value);
