@@ -2,6 +2,8 @@
 
 const API = '';
 let refreshTimer;
+let currentSortBy = 'delta';
+let currentSortDirection = 'desc';
 const priceCache = {};
 
 const SYMBOLS = {
@@ -70,9 +72,33 @@ async function fetchAllPrices(symbols) {
 
 // -- Trending -----------------------------------------------------
 
+function toggleSort(field) {
+    if (currentSortBy === field) {
+        currentSortDirection = currentSortDirection === 'desc' ? 'asc' : 'desc';
+    } else {
+        currentSortBy = field;
+        currentSortDirection = 'desc';
+    }
+    updateSortIndicators();
+    loadTrending();
+}
+
+function updateSortIndicators() {
+    document.querySelectorAll('th[data-sort]').forEach(th => {
+        const indicator = th.querySelector('.sort-indicator');
+        if (!indicator) return;
+        if (th.dataset.sort === currentSortBy) {
+            indicator.textContent = currentSortDirection === 'asc' ? ' \u25B2' : ' \u25BC';
+        } else {
+            indicator.textContent = '';
+        }
+    });
+}
+
 async function loadTrending() {
     try {
-        const res = await fetch(`${API}/api/sentiment/trending?hours=24&limit=20`);
+        const params = new URLSearchParams({ hours: 24, limit: 20, sortBy: currentSortBy, sortDirection: currentSortDirection });
+        const res = await fetch(`${API}/api/sentiment/trending?${params}`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         setStatus(true);
@@ -295,6 +321,7 @@ function hideError() {
 // -- Init ---------------------------------------------------------
 
 function initDashboard() {
+    updateSortIndicators();
     loadTrending();
     refreshTimer = setInterval(loadTrending, 30000);
 }

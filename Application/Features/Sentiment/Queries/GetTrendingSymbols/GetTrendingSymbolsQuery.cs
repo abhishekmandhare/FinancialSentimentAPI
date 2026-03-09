@@ -2,5 +2,9 @@ using MediatR;
 
 namespace Application.Features.Sentiment.Queries.GetTrendingSymbols;
 
-public record GetTrendingSymbolsQuery(int Hours = 24, int Limit = 10)
+public record GetTrendingSymbolsQuery(
+    int Hours = 24,
+    int Limit = 10,
+    string? SortBy = null,
+    string? SortDirection = null)
     : IRequest<IReadOnlyList<TrendingSymbolDto>>;

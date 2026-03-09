@@ -211,4 +211,197 @@ public class GetTrendingSymbolsHandlerTests
             Arg.Is<DateTime>(d => d >= before && d <= after),
             Arg.Any<CancellationToken>());
     }
+
+    [Fact]
+    public async Task Handle_SortBySymbolAsc_ReturnsSortedAlphabetically()
+    {
+        var now = DateTime.UtcNow;
+        var analyses = new[]
+        {
+            MakeAnalysis("TSLA", 0.5, now.AddHours(-2)),
+            MakeAnalysis("AAPL", 0.3, now.AddHours(-2)),
+            MakeAnalysis("MSFT", 0.7, now.AddHours(-2)),
+        };
+
+        _repository.GetRecentAsync(Arg.Any<DateTime>(), Arg.Any<CancellationToken>())
+            .Returns(analyses);
+
+        var result = await CreateHandler().Handle(
+            new GetTrendingSymbolsQuery(24, 10, SortBy: "symbol", SortDirection: "asc"),
+            CancellationToken.None);
+
+        result.Should().HaveCount(3);
+        result[0].Symbol.Should().Be("AAPL");
+        result[1].Symbol.Should().Be("MSFT");
+        result[2].Symbol.Should().Be("TSLA");
+    }
+
+    [Fact]
+    public async Task Handle_SortBySymbolDesc_ReturnsSortedReverseAlphabetically()
+    {
+        var now = DateTime.UtcNow;
+        var analyses = new[]
+        {
+            MakeAnalysis("AAPL", 0.3, now.AddHours(-2)),
+            MakeAnalysis("TSLA", 0.5, now.AddHours(-2)),
+            MakeAnalysis("MSFT", 0.7, now.AddHours(-2)),
+        };
+
+        _repository.GetRecentAsync(Arg.Any<DateTime>(), Arg.Any<CancellationToken>())
+            .Returns(analyses);
+
+        var result = await CreateHandler().Handle(
+            new GetTrendingSymbolsQuery(24, 10, SortBy: "symbol", SortDirection: "desc"),
+            CancellationToken.None);
+
+        result.Should().HaveCount(3);
+        result[0].Symbol.Should().Be("TSLA");
+        result[1].Symbol.Should().Be("MSFT");
+        result[2].Symbol.Should().Be("AAPL");
+    }
+
+    [Fact]
+    public async Task Handle_SortByCurrentAvgScoreDesc_ReturnsHighestScoreFirst()
+    {
+        var now = DateTime.UtcNow;
+        var analyses = new[]
+        {
+            MakeAnalysis("AAPL", 0.3, now.AddHours(-2)),
+            MakeAnalysis("TSLA", 0.9, now.AddHours(-2)),
+            MakeAnalysis("MSFT", 0.6, now.AddHours(-2)),
+        };
+
+        _repository.GetRecentAsync(Arg.Any<DateTime>(), Arg.Any<CancellationToken>())
+            .Returns(analyses);
+
+        var result = await CreateHandler().Handle(
+            new GetTrendingSymbolsQuery(24, 10, SortBy: "currentAvgScore", SortDirection: "desc"),
+            CancellationToken.None);
+
+        result.Should().HaveCount(3);
+        result[0].Symbol.Should().Be("TSLA");
+        result[1].Symbol.Should().Be("MSFT");
+        result[2].Symbol.Should().Be("AAPL");
+    }
+
+    [Fact]
+    public async Task Handle_SortByCurrentAvgScoreAsc_ReturnsLowestScoreFirst()
+    {
+        var now = DateTime.UtcNow;
+        var analyses = new[]
+        {
+            MakeAnalysis("TSLA", 0.9, now.AddHours(-2)),
+            MakeAnalysis("AAPL", 0.3, now.AddHours(-2)),
+            MakeAnalysis("MSFT", 0.6, now.AddHours(-2)),
+        };
+
+        _repository.GetRecentAsync(Arg.Any<DateTime>(), Arg.Any<CancellationToken>())
+            .Returns(analyses);
+
+        var result = await CreateHandler().Handle(
+            new GetTrendingSymbolsQuery(24, 10, SortBy: "currentAvgScore", SortDirection: "asc"),
+            CancellationToken.None);
+
+        result.Should().HaveCount(3);
+        result[0].Symbol.Should().Be("AAPL");
+        result[1].Symbol.Should().Be("MSFT");
+        result[2].Symbol.Should().Be("TSLA");
+    }
+
+    [Fact]
+    public async Task Handle_SortByPreviousAvgScoreDesc_ReturnsHighestPrevFirst()
+    {
+        var now = DateTime.UtcNow;
+        var analyses = new[]
+        {
+            MakeAnalysis("AAPL", 0.2, now.AddHours(-20)),
+            MakeAnalysis("AAPL", 0.5, now.AddHours(-2)),
+            MakeAnalysis("TSLA", 0.8, now.AddHours(-20)),
+            MakeAnalysis("TSLA", 0.5, now.AddHours(-2)),
+            MakeAnalysis("MSFT", 0.5, now.AddHours(-20)),
+            MakeAnalysis("MSFT", 0.5, now.AddHours(-2)),
+        };
+
+        _repository.GetRecentAsync(Arg.Any<DateTime>(), Arg.Any<CancellationToken>())
+            .Returns(analyses);
+
+        var result = await CreateHandler().Handle(
+            new GetTrendingSymbolsQuery(24, 10, SortBy: "previousAvgScore", SortDirection: "desc"),
+            CancellationToken.None);
+
+        result.Should().HaveCount(3);
+        result[0].Symbol.Should().Be("TSLA");
+        result[1].Symbol.Should().Be("MSFT");
+        result[2].Symbol.Should().Be("AAPL");
+    }
+
+    [Fact]
+    public async Task Handle_SortByDeltaAsc_ReturnsSmallestAbsDeltaFirst()
+    {
+        var now = DateTime.UtcNow;
+
+        // AAPL: delta = +0.1, |delta| = 0.1
+        var aaplPrev    = MakeAnalysis("AAPL", 0.4, now.AddHours(-20));
+        var aaplCurrent = MakeAnalysis("AAPL", 0.5, now.AddHours(-2));
+
+        // TSLA: delta = +0.9, |delta| = 0.9
+        var tslaPrev    = MakeAnalysis("TSLA", -0.4, now.AddHours(-20));
+        var tslaCurrent = MakeAnalysis("TSLA",  0.5, now.AddHours(-2));
+
+        _repository.GetRecentAsync(Arg.Any<DateTime>(), Arg.Any<CancellationToken>())
+            .Returns([aaplPrev, aaplCurrent, tslaPrev, tslaCurrent]);
+
+        var result = await CreateHandler().Handle(
+            new GetTrendingSymbolsQuery(24, 10, SortBy: "delta", SortDirection: "asc"),
+            CancellationToken.None);
+
+        result.Should().HaveCount(2);
+        result[0].Symbol.Should().Be("AAPL");
+        result[1].Symbol.Should().Be("TSLA");
+    }
+
+    [Fact]
+    public async Task Handle_DefaultSortWithNullParams_SameAsAbsDeltaDesc()
+    {
+        var now = DateTime.UtcNow;
+
+        var aaplPrev    = MakeAnalysis("AAPL", 0.4, now.AddHours(-20));
+        var aaplCurrent = MakeAnalysis("AAPL", 0.5, now.AddHours(-2));
+
+        var tslaPrev    = MakeAnalysis("TSLA", -0.4, now.AddHours(-20));
+        var tslaCurrent = MakeAnalysis("TSLA",  0.5, now.AddHours(-2));
+
+        _repository.GetRecentAsync(Arg.Any<DateTime>(), Arg.Any<CancellationToken>())
+            .Returns([aaplPrev, aaplCurrent, tslaPrev, tslaCurrent]);
+
+        var result = await CreateHandler().Handle(
+            new GetTrendingSymbolsQuery(24, 10, SortBy: null, SortDirection: null),
+            CancellationToken.None);
+
+        result.Should().HaveCount(2);
+        result[0].Symbol.Should().Be("TSLA");  // |0.9| > |0.1|
+        result[1].Symbol.Should().Be("AAPL");
+    }
+
+    [Fact]
+    public async Task Handle_SortByCaseInsensitive_WorksCorrectly()
+    {
+        var now = DateTime.UtcNow;
+        var analyses = new[]
+        {
+            MakeAnalysis("TSLA", 0.9, now.AddHours(-2)),
+            MakeAnalysis("AAPL", 0.3, now.AddHours(-2)),
+        };
+
+        _repository.GetRecentAsync(Arg.Any<DateTime>(), Arg.Any<CancellationToken>())
+            .Returns(analyses);
+
+        var result = await CreateHandler().Handle(
+            new GetTrendingSymbolsQuery(24, 10, SortBy: "SYMBOL", SortDirection: "ASC"),
+            CancellationToken.None);
+
+        result.Should().HaveCount(2);
+        result[0].Symbol.Should().Be("AAPL");
+        result[1].Symbol.Should().Be("TSLA");
+    }
 }
