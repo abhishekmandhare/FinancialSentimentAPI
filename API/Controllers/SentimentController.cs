@@ -69,9 +69,12 @@ public class SentimentController(ISender sender) : ControllerBase
     public async Task<IActionResult> GetTrending(
         [FromQuery] int hours = 24,
         [FromQuery] int limit = 10,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] string? sortDirection = null,
         CancellationToken ct = default)
     {
-        var result = await sender.Send(new GetTrendingSymbolsQuery(hours, limit), ct);
+        var result = await sender.Send(
+            new GetTrendingSymbolsQuery(hours, limit, sortBy, sortDirection), ct);
         return Ok(result);
     }
 

@@ -22,13 +22,36 @@ public class GetTrendingSymbolsQueryHandler(ISentimentRepository repository)
 
         var grouped = analyses.GroupBy(a => a.Symbol.Value);
 
-        var results = grouped
-            .Select(g => ComputeTrend(g.Key, g.ToList(), midpoint))
-            .OrderByDescending(t => Math.Abs(t.Delta))
+        var unordered = grouped
+            .Select(g => ComputeTrend(g.Key, g.ToList(), midpoint));
+
+        var sorted = ApplySort(unordered, query.SortBy, query.SortDirection);
+
+        var results = sorted
             .Take(query.Limit)
             .ToList();
 
         return results;
+    }
+
+    private static IOrderedEnumerable<TrendingSymbolDto> ApplySort(
+        IEnumerable<TrendingSymbolDto> items,
+        string? sortBy,
+        string? sortDirection)
+    {
+        var descending = !string.Equals(sortDirection, "asc", StringComparison.OrdinalIgnoreCase);
+
+        Func<TrendingSymbolDto, object> keySelector = sortBy?.ToLowerInvariant() switch
+        {
+            "symbol"           => t => t.Symbol,
+            "currentavgscore"  => t => t.CurrentAvgScore,
+            "previousavgscore" => t => t.PreviousAvgScore,
+            _                  => t => Math.Abs(t.Delta)  // default: delta
+        };
+
+        return descending
+            ? items.OrderByDescending(keySelector)
+            : items.OrderBy(keySelector);
     }
 
     private static TrendingSymbolDto ComputeTrend(

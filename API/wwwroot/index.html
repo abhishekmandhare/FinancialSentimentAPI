@@ -49,12 +49,12 @@
                 <table>
                     <thead>
                         <tr>
-                            <th>Symbol</th>
+                            <th data-sort="symbol" onclick="toggleSort('symbol')" style="cursor:pointer">Symbol<span class="sort-indicator"></span></th>
                             <th>Price</th>
                             <th class="sparkline-header">5D</th>
-                            <th>Score</th>
-                            <th>Prev</th>
-                            <th>Delta</th>
+                            <th data-sort="currentAvgScore" onclick="toggleSort('currentAvgScore')" style="cursor:pointer">Score<span class="sort-indicator"></span></th>
+                            <th data-sort="previousAvgScore" onclick="toggleSort('previousAvgScore')" style="cursor:pointer">Prev<span class="sort-indicator"></span></th>
+                            <th data-sort="delta" onclick="toggleSort('delta')" style="cursor:pointer">Delta<span class="sort-indicator"> &#9660;</span></th>
                             <th>Direction</th>
                         </tr>
                     </thead>
