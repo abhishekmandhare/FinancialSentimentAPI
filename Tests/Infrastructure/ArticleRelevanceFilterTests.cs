@@ -270,4 +270,64 @@ public class ArticleRelevanceFilterTests
         var article = MakeArticle("text", url: "https://www.reddit.com/r/gaming/comments/abc/post");
         ArticleRelevanceFilter.PassesUrlFilter(article).Should().BeFalse();
     }
+
+    // --- Crypto article filtering ---
+
+    [Theory]
+    [InlineData("Bitcoin surges past $100k as institutional adoption accelerates and demand grows across global markets.")]
+    [InlineData("Ethereum network upgrade drives renewed interest in defi protocols and staking yields across the ecosystem.")]
+    [InlineData("Crypto market cap hits new record amid Bitcoin rally and strong altcoin performance this quarter overall.")]
+    public void IsRelevant_CryptoArticle_WithCryptoKeywords_ReturnsTrue(string text)
+    {
+        var article = MakeArticle(text, symbol: "BTC-USD");
+        _filter.IsRelevant(article).Should().BeTrue();
+    }
+
+    [Fact]
+    public void PassesKeywordCheck_CryptoSymbol_MatchesBaseTicker()
+    {
+        // "BTC" should match for symbol "BTC-USD"
+        var article = MakeArticle(
+            "BTC breaks through resistance level as trading volume spikes on major exchanges worldwide this week.",
+            symbol: "BTC-USD");
+        ArticleRelevanceFilter.PassesKeywordCheck(article).Should().BeTrue();
+    }
+
+    [Fact]
+    public void PassesKeywordCheck_CryptoSymbol_MatchesFullSymbol()
+    {
+        var article = MakeArticle(
+            "BTC-USD price action shows bullish momentum with strong support levels holding across all timeframes today.",
+            symbol: "BTC-USD");
+        ArticleRelevanceFilter.PassesKeywordCheck(article).Should().BeTrue();
+    }
+
+    [Fact]
+    public void PassesKeywordCheck_CryptoSymbol_NoMatchWithoutKeywords()
+    {
+        var article = MakeArticle(
+            "Beautiful sunny weather expected this weekend with clear skies and mild temperatures across the region.",
+            symbol: "BTC-USD");
+        ArticleRelevanceFilter.PassesKeywordCheck(article).Should().BeFalse();
+    }
+
+    [Fact]
+    public void IsRelevant_RedditCryptocurrencySubreddit_ReturnsTrue()
+    {
+        var article = MakeArticle(
+            "Bitcoin mining difficulty reaches all-time high as hash rate continues to climb steadily this month overall.",
+            symbol: "BTC-USD",
+            url: "https://www.reddit.com/r/cryptocurrency/comments/abc123/bitcoin_mining/");
+        _filter.IsRelevant(article).Should().BeTrue();
+    }
+
+    [Fact]
+    public void IsRelevant_RedditBitcoinSubreddit_ReturnsTrue()
+    {
+        var article = MakeArticle(
+            "Bitcoin halving event approaches, with market analysts predicting significant price movement and volatility ahead.",
+            symbol: "BTC-USD",
+            url: "https://www.reddit.com/r/bitcoin/comments/abc123/halving_prediction/");
+        _filter.IsRelevant(article).Should().BeTrue();
+    }
 }

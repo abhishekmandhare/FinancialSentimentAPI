@@ -62,7 +62,12 @@ public class ArticleRelevanceFilter(ILogger<ArticleRelevanceFilter> logger) : IA
         "valuation", "p/e", "eps", "ebitda", "cash flow",
         "growth", "decline", "surge", "plunge", "soar", "tumble",
         "beat", "miss", "exceed", "disappoint",
-        "buy", "sell", "hold", "outperform", "underperform"
+        "buy", "sell", "hold", "outperform", "underperform",
+        // Crypto-specific terms
+        "crypto", "cryptocurrency", "bitcoin", "ethereum", "blockchain",
+        "token", "altcoin", "defi", "mining", "halving",
+        "staking", "wallet", "exchange", "binance", "coinbase",
+        "solana", "cardano", "dogecoin", "ripple", "litecoin"
     ];
 
     public bool IsRelevant(ArticleToAnalyze article)
@@ -117,9 +122,14 @@ public class ArticleRelevanceFilter(ILogger<ArticleRelevanceFilter> logger) : IA
     internal static bool PassesKeywordCheck(ArticleToAnalyze article)
     {
         var lowerText = article.Text.ToLowerInvariant();
+        var lowerSymbol = article.Symbol.ToLowerInvariant();
 
-        // Check if the symbol itself appears in the text (whole word to avoid partial matches)
-        if (ContainsWholeWord(lowerText, article.Symbol.ToLowerInvariant()))
+        // Check if the full symbol appears (e.g. "BTC-USD", "AAPL")
+        if (ContainsWholeWord(lowerText, lowerSymbol))
+            return true;
+
+        // For crypto symbols like "BTC-USD", also check the base ticker "BTC"
+        if (lowerSymbol.EndsWith("-usd") && ContainsWholeWord(lowerText, lowerSymbol[..^4]))
             return true;
 
         // Check for any financial keyword
