@@ -112,6 +112,59 @@ This document records significant incidents, root cause analyses, and architectu
 
 ---
 
+## Incident 6: Crypto symbols never appearing on dashboard
+
+**Category:** integration
+**Related PR(s):** #73, #77
+**Date discovered:** 2026-03
+
+**Symptoms:**
+- No crypto symbols (BTC-USD, ETH-USD, etc.) appeared in the trending dashboard despite being seeded in the TrackedSymbols DB table
+- Stock symbols worked fine
+
+**Root cause (multi-layered):**
+1. **News source queries (PR #73):** Reddit ingestion only searched `/r/stocks` and Google News appended "stock news" — neither effective for crypto. Fixed by searching `/r/cryptocurrency` for crypto symbols and using "crypto news" suffix.
+2. **Relevance filter (PR #77):** Even after fixing news sources, `ArticleRelevanceFilter` silently dropped all crypto articles because:
+   - The `FinancialKeywords` list had zero crypto terms — articles about "Bitcoin surges" or "Ethereum staking" matched no keywords
+   - Symbol matching required exact whole-word `btc-usd` in article text, but titles say "BTC" or "Bitcoin"
+3. **Stale Docker image on TrueNAS:** The deployed container was not updated after merging fixes — `docker pull` + restart required
+
+**Fix:**
+- PR #73: Crypto-aware subreddit selection and Google News query suffix
+- PR #77: Added 20 crypto keywords (bitcoin, ethereum, blockchain, defi, mining, halving, etc.) and base-ticker extraction (`BTC` from `BTC-USD`)
+- Deployed latest image to TrueNAS
+
+**Lesson:**
+- When adding new asset classes (crypto, forex, commodities), audit the entire pipeline end-to-end: tracked symbols → news sources → relevance filter → AI analysis → display
+- The relevance filter is a silent gatekeeper — articles it drops produce no errors or warnings at INFO level. Check DEBUG logs if articles seem to vanish
+- Always pull the latest Docker image after merging fixes — GHCR builds on push to main but TrueNAS doesn't auto-update
+
+---
+
+## Incident 7: Admin dashboard latency always showing 0
+
+**Category:** deployment
+**Related PR(s):** #72
+**Date discovered:** 2026-03
+
+**Symptoms:**
+- Admin stats page showed "Average Latency: 0s" for all analyses
+
+**Root cause:**
+- PR #72 added the `DurationMs` column (nullable bigint) to `SentimentAnalysis`, but existing rows all have `DurationMs = NULL`
+- `SystemStatsRepository.GetAverageAnalysisLatencySecondsAsync` correctly queries only non-null rows, but there were none
+- Additionally, the TrueNAS container was running a pre-PR#72 image where the column didn't exist
+
+**Fix:**
+- Deploy latest image so new analyses record `DurationMs` via `Stopwatch` in `AnalyzeSentimentCommandHandler`
+- Latency stats will self-populate as new data flows through — no backfill needed
+
+**Lesson:**
+- When adding nullable metrics columns, the admin dashboard will show zero/empty until new data accumulates — consider showing "No data yet" instead of "0" for better UX
+- Verify the deployed image version matches the expected code version after merging
+
+---
+
 ## Template for future entries
 
 ```

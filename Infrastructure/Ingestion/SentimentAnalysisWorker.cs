@@ -62,13 +62,15 @@ public class SentimentAnalysisWorker(
             using var scope   = scopeFactory.CreateScope();
             var sender        = scope.ServiceProvider.GetRequiredService<ISender>();
 
-            await sender.Send(new AnalyzeSentimentCommand(
+            var response = await sender.Send(new AnalyzeSentimentCommand(
                 article.Symbol,
                 article.Text,
                 article.SourceUrl), ct);
 
-            logger.LogInformation("Analyzed article for {Symbol} from {SourceUrl}",
-                article.Symbol, article.SourceUrl ?? "unknown source");
+            logger.LogInformation(
+                "Analyzed article for {Symbol} — {Label} ({Score:F2}) in {DurationMs}ms from {SourceUrl}",
+                article.Symbol, response.Label, response.Score,
+                response.DurationMs ?? 0, article.SourceUrl ?? "unknown source");
         }
         catch (Exception ex)
         {
