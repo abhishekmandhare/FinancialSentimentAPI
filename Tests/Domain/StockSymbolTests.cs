@@ -63,4 +63,18 @@ public class StockSymbolTests
         var symbol = new StockSymbol(input);
         symbol.IsCrypto.Should().Be(expected);
     }
+
+    [Theory]
+    [InlineData("BTC-USD", "BTC")]
+    [InlineData("ETH-USD", "ETH")]
+    [InlineData("SOL-USD", "SOL")]
+    [InlineData("DOGE-USD", "DOGE")]
+    [InlineData("AAPL", "AAPL")]
+    [InlineData("MSFT", "MSFT")]
+    [InlineData("BHP.AX", "BHP.AX")]
+    public void BaseTicker_ExtractsCorrectly(string input, string expected)
+    {
+        var symbol = new StockSymbol(input);
+        symbol.BaseTicker.Should().Be(expected);
+    }
 }

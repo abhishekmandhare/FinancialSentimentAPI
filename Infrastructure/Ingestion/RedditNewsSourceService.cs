@@ -28,6 +28,10 @@ public class RedditNewsSourceService(
         DateTime since,
         CancellationToken ct = default)
     {
+        // For crypto symbols, search by base ticker (e.g. "BTC" not "BTC-USD")
+        // because Reddit users don't use Yahoo Finance ticker format.
+        var searchTerm = symbol.IsCrypto ? symbol.BaseTicker : symbol.Value;
+
         var subreddits = symbol.IsCrypto
             ? new[] { "stocks", "cryptocurrency" }
             : new[] { "stocks" };
@@ -36,7 +40,7 @@ public class RedditNewsSourceService(
 
         foreach (var subreddit in subreddits)
         {
-            var url = $"https://www.reddit.com/r/{subreddit}/search.rss?q={Uri.EscapeDataString(symbol.Value)}&restrict_sr=on&sort=new&t=day";
+            var url = $"https://www.reddit.com/r/{subreddit}/search.rss?q={Uri.EscapeDataString(searchTerm)}&restrict_sr=on&sort=new&t=day";
 
             try
             {
@@ -55,6 +59,10 @@ public class RedditNewsSourceService(
             {
                 logger.LogWarning(ex, "Failed to parse Reddit RSS feed from r/{Subreddit} for {Symbol}", subreddit, symbol.Value);
             }
+
+            // Reddit rate-limits unauthenticated RSS requests aggressively.
+            // A short delay between subreddit fetches prevents 429 errors.
+            await Task.Delay(TimeSpan.FromSeconds(2), ct);
         }
 
         // Deduplicate by URL

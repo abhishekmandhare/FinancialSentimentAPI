@@ -128,16 +128,21 @@ This document records significant incidents, root cause analyses, and architectu
    - The `FinancialKeywords` list had zero crypto terms — articles about "Bitcoin surges" or "Ethereum staking" matched no keywords
    - Symbol matching required exact whole-word `btc-usd` in article text, but titles say "BTC" or "Bitcoin"
 3. **Stale Docker image on TrueNAS:** The deployed container was not updated after merging fixes — `docker pull` + restart required
+4. **Search query used full Yahoo ticker (PR #78):** Even after all above fixes, Reddit and Google News searches used `BTC-USD` as the search term — nobody writes "BTC-USD" in Reddit posts or news headlines. Added `StockSymbol.BaseTicker` property to extract `BTC` from `BTC-USD` for search queries.
+5. **Reddit rate limiting (PR #78):** With 95 tracked symbols (15 crypto × 2 subreddits + stocks), Reddit aggressively rate-limited the rapid-fire unauthenticated RSS requests, returning 429 errors. Added inter-request delays (2s between subreddits, 3s between symbols).
 
 **Fix:**
 - PR #73: Crypto-aware subreddit selection and Google News query suffix
-- PR #77: Added 20 crypto keywords (bitcoin, ethereum, blockchain, defi, mining, halving, etc.) and base-ticker extraction (`BTC` from `BTC-USD`)
+- PR #77: Added 20 crypto keywords (bitcoin, ethereum, blockchain, defi, mining, halving, etc.) and base-ticker extraction (`BTC` from `BTC-USD`) in relevance filter
+- PR #78: Search by base ticker (`BTC` not `BTC-USD`) in Reddit and Google News queries + rate-limit delays
 - Deployed latest image to TrueNAS
 
 **Lesson:**
 - When adding new asset classes (crypto, forex, commodities), audit the entire pipeline end-to-end: tracked symbols → news sources → relevance filter → AI analysis → display
 - The relevance filter is a silent gatekeeper — articles it drops produce no errors or warnings at INFO level. Check DEBUG logs if articles seem to vanish
 - Always pull the latest Docker image after merging fixes — GHCR builds on push to main but TrueNAS doesn't auto-update
+- Search queries must use human-friendly terms, not internal ticker formats — people write "BTC" and "Bitcoin", not "BTC-USD"
+- Unauthenticated RSS endpoints (especially Reddit) rate-limit aggressively — always add delays between requests when processing many symbols
 
 ---
 
