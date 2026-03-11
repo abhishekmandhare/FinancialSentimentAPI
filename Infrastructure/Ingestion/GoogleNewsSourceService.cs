@@ -25,8 +25,11 @@ public class GoogleNewsSourceService(
         DateTime since,
         CancellationToken ct = default)
     {
+        // For crypto symbols, search by base ticker (e.g. "BTC" not "BTC-USD")
+        // because news articles don't use Yahoo Finance ticker format.
+        var searchTerm = symbol.IsCrypto ? symbol.BaseTicker : symbol.Value;
         var suffix = symbol.IsCrypto ? "crypto news" : "stock news";
-        var url = $"https://news.google.com/rss/search?q={Uri.EscapeDataString(symbol.Value + " " + suffix)}&hl=en-US&gl=US&ceid=US:en";
+        var url = $"https://news.google.com/rss/search?q={Uri.EscapeDataString(searchTerm + " " + suffix)}&hl=en-US&gl=US&ceid=US:en";
 
         try
         {

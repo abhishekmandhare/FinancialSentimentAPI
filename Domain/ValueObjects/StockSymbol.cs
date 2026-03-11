@@ -20,6 +20,12 @@ public record StockSymbol
     /// </summary>
     public bool IsCrypto => Value.EndsWith("-USD", StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// Returns the base ticker for crypto symbols (e.g. "BTC" from "BTC-USD"),
+    /// or the full symbol for non-crypto symbols.
+    /// </summary>
+    public string BaseTicker => IsCrypto ? Value[..Value.IndexOf('-')] : Value;
+
     public override string ToString() => Value;
 
     public static implicit operator string(StockSymbol symbol) => symbol.Value;

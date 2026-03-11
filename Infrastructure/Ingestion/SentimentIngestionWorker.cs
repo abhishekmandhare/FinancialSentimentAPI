@@ -96,6 +96,10 @@ public class SentimentIngestionWorker(
             {
                 logger.LogError(ex, "Error during ingestion cycle for {Symbol}", symbol.Value);
             }
+
+            // Stagger requests between symbols to avoid rate limiting by news sources
+            // (Reddit in particular aggressively throttles unauthenticated RSS requests).
+            await Task.Delay(TimeSpan.FromSeconds(3), ct);
         }
     }
 }
