@@ -68,6 +68,7 @@ public static class DependencyInjection
             configuration.GetSection(IngestionOptions.SectionName));
 
         services.AddSingleton<IArticleQueue, InMemoryArticleQueue>();
+        services.AddSingleton<IArticleDeduplicator, InMemoryArticleDeduplicator>();
         services.AddSingleton<IArticleRelevanceFilter, ArticleRelevanceFilter>();
 
         const string userAgent =
@@ -82,6 +83,12 @@ public static class DependencyInjection
         services.AddHttpClient<RedditNewsSourceService>(client =>
             client.DefaultRequestHeaders.UserAgent.ParseAdd(userAgent));
 
+        services.AddHttpClient<CoinDeskNewsSourceService>(client =>
+            client.DefaultRequestHeaders.UserAgent.ParseAdd(userAgent));
+
+        services.AddHttpClient<CoinTelegraphNewsSourceService>(client =>
+            client.DefaultRequestHeaders.UserAgent.ParseAdd(userAgent));
+
         services.AddTransient<INewsSourceService>(sp =>
         {
             INewsSourceService[] sources =
@@ -89,6 +96,8 @@ public static class DependencyInjection
                 sp.GetRequiredService<RssNewsSourceService>(),
                 sp.GetRequiredService<GoogleNewsSourceService>(),
                 sp.GetRequiredService<RedditNewsSourceService>(),
+                sp.GetRequiredService<CoinDeskNewsSourceService>(),
+                sp.GetRequiredService<CoinTelegraphNewsSourceService>(),
             ];
             var log = sp.GetRequiredService<ILogger<CompositeNewsSourceService>>();
             return new CompositeNewsSourceService(sources, log);

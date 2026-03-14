@@ -1,3 +1,4 @@
+using System.Net;
 using System.Xml;
 using System.Xml.Linq;
 using Domain.ValueObjects;
@@ -23,6 +24,9 @@ public class RedditNewsSourceService(
     // Atom namespace
     private static readonly XNamespace Atom = "http://www.w3.org/2005/Atom";
 
+    private const int MaxRetries = 2;
+    private static readonly TimeSpan BaseBackoff = TimeSpan.FromSeconds(5);
+
     public async Task<IReadOnlyList<FetchedArticle>> FetchArticlesAsync(
         StockSymbol symbol,
         DateTime since,
@@ -44,16 +48,13 @@ public class RedditNewsSourceService(
 
             try
             {
-                var xml = await httpClient.GetStringAsync(url, ct);
-                allArticles.AddRange(ParseAtom(xml, since));
+                var xml = await FetchWithRetryAsync(url, subreddit, symbol.Value, ct);
+                if (xml is not null)
+                    allArticles.AddRange(ParseAtom(xml, since));
             }
             catch (OperationCanceledException)
             {
                 throw;
-            }
-            catch (HttpRequestException ex)
-            {
-                logger.LogWarning(ex, "Failed to fetch Reddit RSS feed from r/{Subreddit} for {Symbol}", subreddit, symbol.Value);
             }
             catch (XmlException ex)
             {
@@ -70,6 +71,48 @@ public class RedditNewsSourceService(
             .GroupBy(a => a.SourceUrl)
             .Select(g => g.First())
             .ToList();
+    }
+
+    private async Task<string?> FetchWithRetryAsync(string url, string subreddit, string symbol, CancellationToken ct)
+    {
+        for (var attempt = 0; attempt <= MaxRetries; attempt++)
+        {
+            try
+            {
+                var response = await httpClient.GetAsync(url, ct);
+
+                if (response.StatusCode == HttpStatusCode.TooManyRequests)
+                {
+                    if (attempt == MaxRetries)
+                    {
+                        logger.LogWarning("Reddit rate-limited r/{Subreddit} for {Symbol} after {Attempts} retries — skipping",
+                            subreddit, symbol, MaxRetries + 1);
+                        return null;
+                    }
+
+                    var delay = BaseBackoff * (attempt + 1);
+                    logger.LogDebug("Reddit 429 for r/{Subreddit} {Symbol} — backing off {Seconds}s (attempt {Attempt}/{Max})",
+                        subreddit, symbol, delay.TotalSeconds, attempt + 1, MaxRetries + 1);
+                    await Task.Delay(delay, ct);
+                    continue;
+                }
+
+                response.EnsureSuccessStatusCode();
+                return await response.Content.ReadAsStringAsync(ct);
+            }
+            catch (HttpRequestException ex) when (attempt < MaxRetries)
+            {
+                logger.LogDebug(ex, "HTTP error fetching r/{Subreddit} for {Symbol} — retrying", subreddit, symbol);
+                await Task.Delay(BaseBackoff * (attempt + 1), ct);
+            }
+            catch (HttpRequestException ex)
+            {
+                logger.LogWarning(ex, "Failed to fetch Reddit RSS feed from r/{Subreddit} for {Symbol}", subreddit, symbol);
+                return null;
+            }
+        }
+
+        return null;
     }
 
     private static List<FetchedArticle> ParseAtom(string xml, DateTime since)

@@ -21,13 +21,12 @@ namespace Infrastructure.Ingestion;
 public class SentimentIngestionWorker(
     IServiceScopeFactory scopeFactory,
     IArticleQueue articleQueue,
+    IArticleDeduplicator deduplicator,
     IArticleRelevanceFilter relevanceFilter,
     IOptionsMonitor<IngestionOptions> options,
     ILogger<SentimentIngestionWorker> logger)
     : BackgroundService
 {
-    // In-memory dedup store. For multi-instance deployments, move to Redis or DB.
-    private readonly HashSet<string> _processedUrls = [];
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -51,7 +50,7 @@ public class SentimentIngestionWorker(
         var newsSourceService = scope.ServiceProvider.GetRequiredService<INewsSourceService>();
 
         var symbols = await symbolsProvider.GetActiveSymbolsAsync(ct);
-        var since   = DateTime.UtcNow.AddMinutes(-options.CurrentValue.PollingIntervalMinutes * 2);
+        var since   = DateTime.UtcNow.AddHours(-12);
 
         foreach (var symbol in symbols)
         {
@@ -66,14 +65,12 @@ public class SentimentIngestionWorker(
 
                 foreach (var article in articles)
                 {
-                    var key = article.SourceUrl ?? article.Text.GetHashCode().ToString();
+                    var candidate = new ArticleToAnalyze(symbol.Value, article.Text, article.SourceUrl, article.PublishedAt);
 
-                    if (_processedUrls.Contains(key))
+                    if (await deduplicator.IsSeenAsync(candidate, ct))
                         continue;
 
-                    _processedUrls.Add(key);
-
-                    var candidate = new ArticleToAnalyze(symbol.Value, article.Text, article.SourceUrl, article.PublishedAt);
+                    await deduplicator.MarkSeenAsync(candidate, ct);
 
                     if (!relevanceFilter.IsRelevant(candidate))
                     {
@@ -99,7 +96,7 @@ public class SentimentIngestionWorker(
 
             // Stagger requests between symbols to avoid rate limiting by news sources
             // (Reddit in particular aggressively throttles unauthenticated RSS requests).
-            await Task.Delay(TimeSpan.FromSeconds(3), ct);
+            await Task.Delay(TimeSpan.FromSeconds(5), ct);
         }
     }
 }
