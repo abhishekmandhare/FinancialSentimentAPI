@@ -90,6 +90,10 @@ public class OllamaSentimentService(
         if (jsonStart >= 0 && jsonEnd > jsonStart)
             json = content[jsonStart..(jsonEnd + 1)];
 
+        // LLMs occasionally produce almost-valid JSON with stray characters
+        // (e.g. trailing ' or ` after a quoted string). Strip common garbage.
+        json = SanitizeLlmJson(json);
+
         try
         {
             var parsed = JsonSerializer.Deserialize<SentimentJson>(json, JsonOptions)
@@ -113,6 +117,56 @@ public class OllamaSentimentService(
                 KeyReasons:   ["AI response was not valid JSON — treated as neutral"],
                 ModelVersion: model);
         }
+    }
+
+    /// <summary>
+    /// Fix common LLM JSON errors: stray quotes/backticks between tokens,
+    /// trailing commas before ] or }. Handles cases like:
+    ///   "value"']}  →  "value"]}
+    ///   "value",]   →  "value"]
+    /// </summary>
+    internal static string SanitizeLlmJson(string json)
+    {
+        // Remove stray single-quotes and backticks that appear between valid JSON tokens
+        // e.g. "text"']} → "text"]}
+        var sb = new StringBuilder(json.Length);
+        for (var i = 0; i < json.Length; i++)
+        {
+            var c = json[i];
+            if (c is '\'' or '`')
+            {
+                // Skip stray quotes that aren't inside a JSON string value
+                // (we only reach here outside of string context since we
+                //  walk character-by-character without entering strings)
+                continue;
+            }
+            sb.Append(c);
+
+            // Skip over JSON string contents so we don't strip quotes inside values
+            if (c == '"')
+            {
+                for (var j = i + 1; j < json.Length; j++)
+                {
+                    sb.Append(json[j]);
+                    if (json[j] == '\\' && j + 1 < json.Length)
+                    {
+                        j++;
+                        sb.Append(json[j]);
+                    }
+                    else if (json[j] == '"')
+                    {
+                        i = j;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Remove trailing commas before ] or } — e.g. "value",] → "value"]
+        var result = sb.ToString();
+        result = System.Text.RegularExpressions.Regex.Replace(result, @",\s*([}\]])", "$1");
+
+        return result;
     }
 
     private record OllamaResponse(OllamaMessage? Message, int? EvalCount);
