@@ -13,7 +13,7 @@ public class AnalyzeSentimentCommandValidator : AbstractValidator<AnalyzeSentime
         RuleFor(x => x.Symbol)
             .NotEmpty().WithMessage("Symbol is required.")
             .MaximumLength(10).WithMessage("Symbol cannot exceed 10 characters.")
-            .Matches("^[A-Za-z0-9]+$").WithMessage("Symbol must be alphanumeric.");
+            .Matches("^[A-Za-z0-9._-]+$").WithMessage("Symbol must contain only letters, digits, hyphens, or dots.");
 
         RuleFor(x => x.Text)
             .NotEmpty().WithMessage("Text is required.")

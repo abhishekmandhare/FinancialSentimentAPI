@@ -6,26 +6,12 @@ let currentSortBy = 'delta';
 let currentSortDirection = 'desc';
 const priceCache = {};
 
-const SYMBOLS = {
-    'AAPL':    'Apple Inc.',
-    'MSFT':    'Microsoft Corp.',
-    'GOOGL':   'Alphabet Inc.',
-    'TSLA':    'Tesla Inc.',
-    'NVDA':    'NVIDIA Corp.',
-    'AMZN':    'Amazon.com Inc.',
-    'META':    'Meta Platforms Inc.',
-    'NFLX':    'Netflix Inc.',
-    'AMD':     'Advanced Micro Devices',
-    'INTC':    'Intel Corp.',
-    'JPM':     'JPMorgan Chase & Co.',
-    'BAC':     'Bank of America Corp.',
-    'SPY':     'S&P 500 ETF',
-    'QQQ':     'Nasdaq-100 ETF',
-    'BTC-USD': 'Bitcoin',
-};
+// Symbol display names — populated dynamically from Yahoo Finance price data.
+// The priceCache stores meta.longName from each chart response.
+const symbolNames = {};
 
 function symbolName(sym) {
-    return SYMBOLS[sym] || sym;
+    return symbolNames[sym] || sym;
 }
 
 // -- Stock Price Fetching -----------------------------------------
@@ -48,6 +34,10 @@ async function fetchStockPrice(symbol) {
         const previousClose = meta.chartPreviousClose || meta.previousClose;
         const change = previousClose ? currentPrice - previousClose : 0;
         const changePercent = previousClose ? (change / previousClose) * 100 : 0;
+
+        if (meta.longName || meta.shortName) {
+            symbolNames[symbol] = meta.longName || meta.shortName;
+        }
 
         return {
             price: currentPrice,
@@ -126,7 +116,7 @@ function renderTrending(items) {
         const priceHtml = cached ? formatPriceCell(cached) : '<span style="color:var(--text-dim)">&mdash;</span>';
         const sparkHtml = cached ? createSparklineSvg(cached.sparklineData, cached.change >= 0) : '';
         return `<tr onclick="openDetail('${t.symbol}')">
-            <td><strong>${t.symbol}</strong><br><span style="font-size:0.75rem;color:var(--text-dim);font-weight:normal">${symbolName(t.symbol)}</span></td>
+            <td><strong>${t.symbol}</strong><br><span data-name-symbol="${t.symbol}" style="font-size:0.75rem;color:var(--text-dim);font-weight:normal">${symbolName(t.symbol)}</span></td>
             <td class="price-cell" data-price-symbol="${t.symbol}">${priceHtml}</td>
             <td class="sparkline-cell" data-sparkline-symbol="${t.symbol}">${sparkHtml}</td>
             <td class="score ${scoreClass}">${t.currentAvgScore.toFixed(3)}</td>
@@ -158,6 +148,12 @@ function updatePriceCells(items) {
         const sparkCell = document.querySelector(`[data-sparkline-symbol="${t.symbol}"]`);
         if (sparkCell) {
             sparkCell.innerHTML = createSparklineSvg(cached.sparklineData, cached.change >= 0);
+        }
+
+        // Update symbol name from Yahoo Finance metadata
+        const nameCell = document.querySelector(`[data-name-symbol="${t.symbol}"]`);
+        if (nameCell) {
+            nameCell.textContent = symbolName(t.symbol);
         }
     });
 }

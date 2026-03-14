@@ -170,6 +170,45 @@ This document records significant incidents, root cause analyses, and architectu
 
 ---
 
+## Incident 8: Crypto symbols fail validation, Reddit 429s persist, ingestion window too narrow
+
+**Category:** integration
+**Related PR(s):** #79
+**Date discovered:** 2026-03
+
+**Symptoms:**
+- Crypto symbols (ADA-USD, XRP-USD, DOGE-USD) failed `AnalyzeSentimentCommand` validation with "One or more validation failures occurred"
+- Reddit returned 429 (Too Many Requests) for ~30% of symbols despite 3s inter-symbol delays
+- BTC-USD and other crypto still not appearing on the dashboard despite news sources returning data
+- Symbol display names missing for seeded symbols not in the original hardcoded JS map
+
+**Root cause (multi-layered):**
+1. **Validator regex rejected hyphens/dots:** `^[A-Za-z0-9]+$` blocked `BTC-USD` (hyphen) and `BHP.AX` (dot) — every crypto and ASX symbol failed validation silently
+2. **Ingestion time window too narrow:** `since = UtcNow - (PollingInterval × 2)` = 30 minutes. Most Google News articles are older than 30 min, so they were fetched then immediately discarded by the time filter
+3. **No retry on Reddit 429:** Single attempt per request — when rate-limited, articles were simply lost
+4. **3s inter-symbol delay insufficient:** With 95 symbols, Reddit hit rate limits partway through the cycle (~symbol 60+)
+5. **Hardcoded symbol name map:** Dashboard JS had 15 hardcoded names; seeded symbols (95 total) showed raw tickers
+6. **Dedup coupled to worker:** In-memory `HashSet` in `SentimentIngestionWorker` — not swappable for multi-instance deployments
+
+**Fix:**
+- Validator regex: `^[A-Za-z0-9]+$` → `^[A-Za-z0-9._-]+$`
+- Ingestion window: `PollingInterval × 2` → fixed 12-hour window (safe with dedup)
+- Reddit: Added retry-with-exponential-backoff on 429 (up to 2 retries, 5s/10s delays)
+- Inter-symbol delay: 3s → 5s
+- Symbol names: Removed hardcoded map, populate dynamically from Yahoo Finance `meta.longName`
+- Dedup: Extracted `IArticleDeduplicator` interface (Application layer) with `InMemoryArticleDeduplicator` (Infrastructure) — swappable for Redis/DB
+- Added CoinDesk + CoinTelegraph RSS sources for better crypto coverage
+- Added `dev-local.sh` script for syncing TrueNAS DB to local dev
+
+**Lesson:**
+- Validators must accommodate all supported symbol formats from day one — test with real symbol values from every asset class
+- Ingestion time windows must be wider than the polling interval when dedup prevents reprocessing — narrow windows silently discard valid articles
+- Any external API integration needs retry logic with backoff, not single-attempt fire-and-forget
+- UI data (symbol names, display metadata) should come from the data source, not hardcoded maps that fall out of sync
+- Dedup, queuing, and caching should be behind interfaces from the start to keep deployment flexibility
+
+---
+
 ## Template for future entries
 
 ```
