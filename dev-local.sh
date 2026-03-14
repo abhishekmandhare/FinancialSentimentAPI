@@ -20,8 +20,14 @@ LOCAL_DB_PASS="localdev123"
 
 # ── Dump remote DB and restore locally ────────────────────────────
 dump_and_restore() {
-  echo "==> Dumping TrueNAS database..."
-  ssh "$HOST" "cd $APP_DIR && sudo docker compose exec -T db pg_dump -U sentiment -d sentiment -Fc" > "$DUMP_FILE"
+  local remote_dump="/tmp/sentiment_dump.sql"
+
+  echo "==> Dumping TrueNAS database (sudo will prompt for password)..."
+  ssh -tt "$HOST" "cd $APP_DIR && sudo docker compose exec -T db pg_dump -U sentiment -d sentiment -Fc > $remote_dump && echo DUMP_OK"
+
+  echo "==> Copying dump file..."
+  scp "$HOST:$remote_dump" "$DUMP_FILE"
+  ssh "$HOST" "rm -f $remote_dump"
 
   local size
   size=$(wc -c < "$DUMP_FILE")

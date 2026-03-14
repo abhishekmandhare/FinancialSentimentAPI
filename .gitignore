@@ -21,6 +21,10 @@ API/appsettings.Testing.json
 ## Claude Code local settings (machine-specific permissions)
 .claude/
 
+## Local dev overrides
+docker-compose.override.yml
+sentiment_dump.sql
+
 ## OS
 .DS_Store
 Thumbs.db
