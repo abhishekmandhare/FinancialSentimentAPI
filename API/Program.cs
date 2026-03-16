@@ -3,10 +3,14 @@ using API;
 using API.Middleware;
 using Application;
 using Infrastructure;
+using Infrastructure.Monitoring;
 using Infrastructure.Persistence;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -50,6 +54,23 @@ builder.Services.AddHttpClient("YahooFinance", client =>
 //            limiterOptions.QueueLimit = 0;
 //        });
 //    });
+
+// ── OpenTelemetry ────────────────────────────────────────────────────────────
+// Traces: ASP.NET Core, HttpClient, EF Core, custom ActivitySource
+// Metrics: ASP.NET Core, HttpClient, .NET runtime, custom Meter → Prometheus /metrics
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(r => r.AddService(AppMetrics.ServiceName))
+    .WithTracing(tracing => tracing
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddEntityFrameworkCoreInstrumentation()
+        .AddSource(AppMetrics.ServiceName))
+    .WithMetrics(metrics => metrics
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddRuntimeInstrumentation()
+        .AddMeter(AppMetrics.ServiceName)
+        .AddPrometheusExporter());
 
 // Each layer owns its own DI registration.
 // API only calls AddApplication() and AddInfrastructure() — knows nothing about internals.
@@ -139,6 +160,9 @@ app.MapControllers();
 // Health checks — required for Cloud Run readiness probes
 app.MapHealthChecks("/health/live");
 app.MapHealthChecks("/health/ready");
+
+// Prometheus metrics endpoint — scraped by Prometheus container
+app.MapPrometheusScrapingEndpoint();
 
 app.Run();
 

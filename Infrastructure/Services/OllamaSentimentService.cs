@@ -1,8 +1,10 @@
+using System.Diagnostics;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using Application.Services;
 using Domain.ValueObjects;
+using Infrastructure.Monitoring;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -62,7 +64,10 @@ public class OllamaSentimentService(
                 "application/json")
         };
 
+        var requestStart = Stopwatch.GetTimestamp();
         var response = await httpClient.SendAsync(request, ct);
+        AppMetrics.OllamaRequestDuration.Record(Stopwatch.GetElapsedTime(requestStart).TotalSeconds);
+
         if (!response.IsSuccessStatusCode)
         {
             var errorBody = await response.Content.ReadAsStringAsync(ct);
@@ -110,6 +115,7 @@ public class OllamaSentimentService(
         }
         catch (JsonException ex)
         {
+            AppMetrics.OllamaParseFailures.Add(1);
             logger.LogWarning(ex, "Failed to parse Ollama response as JSON, returning neutral fallback. Raw content: {Content}", content);
             return new AiSentimentResult(
                 Score:        0.0,

@@ -1,5 +1,7 @@
+using System.Diagnostics;
 using Application.Features.Sentiment.Commands.AnalyzeSentiment;
 using Application.Services;
+using Infrastructure.Monitoring;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -57,6 +59,7 @@ public class SentimentAnalysisWorker(
 
     private async Task AnalyzeAsync(ArticleToAnalyze article, CancellationToken ct)
     {
+        var start = Stopwatch.GetTimestamp();
         try
         {
             using var scope   = scopeFactory.CreateScope();
@@ -67,6 +70,13 @@ public class SentimentAnalysisWorker(
                 article.Text,
                 article.SourceUrl), ct);
 
+            var elapsed = Stopwatch.GetElapsedTime(start);
+            AppMetrics.AnalysisDuration.Record(elapsed.TotalSeconds,
+                new KeyValuePair<string, object?>("symbol", article.Symbol));
+            AppMetrics.AnalysisTotal.Add(1,
+                new KeyValuePair<string, object?>("symbol", article.Symbol),
+                new KeyValuePair<string, object?>("result", "success"));
+
             logger.LogInformation(
                 "Analyzed article for {Symbol} — {Label} ({Score:F2}) in {DurationMs}ms from {SourceUrl}",
                 article.Symbol, response.Label, response.Score,
@@ -74,6 +84,13 @@ public class SentimentAnalysisWorker(
         }
         catch (Exception ex)
         {
+            var elapsed = Stopwatch.GetElapsedTime(start);
+            AppMetrics.AnalysisDuration.Record(elapsed.TotalSeconds,
+                new KeyValuePair<string, object?>("symbol", article.Symbol));
+            AppMetrics.AnalysisTotal.Add(1,
+                new KeyValuePair<string, object?>("symbol", article.Symbol),
+                new KeyValuePair<string, object?>("result", "failure"));
+
             logger.LogError(ex, "Failed to analyze article for {Symbol}", article.Symbol);
         }
     }

@@ -2,6 +2,7 @@ using System.Net;
 using System.Xml;
 using System.Xml.Linq;
 using Domain.ValueObjects;
+using Infrastructure.Monitoring;
 using Microsoft.Extensions.Logging;
 
 namespace Infrastructure.Ingestion;
@@ -83,6 +84,9 @@ public class RedditNewsSourceService(
 
                 if (response.StatusCode == HttpStatusCode.TooManyRequests)
                 {
+                    AppMetrics.RedditRateLimits.Add(1,
+                        new KeyValuePair<string, object?>("subreddit", subreddit));
+
                     if (attempt == MaxRetries)
                     {
                         logger.LogWarning("Reddit rate-limited r/{Subreddit} for {Symbol} after {Attempts} retries — skipping",
