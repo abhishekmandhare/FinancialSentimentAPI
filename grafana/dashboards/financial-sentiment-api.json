@@ -1,0 +1,279 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "links": [],
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 100,
+      "title": "Overview",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "" },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 1 },
+      "id": 1,
+      "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "title": "Analyses Today",
+      "type": "stat",
+      "targets": [{ "expr": "sum(increase(analysis_total[24h]))", "legendFormat": "analyses" }]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "" },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 1 },
+      "id": 2,
+      "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "title": "Articles Ingested Today",
+      "type": "stat",
+      "targets": [{ "expr": "sum(increase(ingestion_articles_queued_total[24h]))", "legendFormat": "articles" }]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "" },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "yellow", "value": 1 },
+            { "color": "red", "value": 5 }
+          ]},
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 1 },
+      "id": 3,
+      "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "title": "Avg API Latency",
+      "type": "stat",
+      "targets": [{ "expr": "rate(http_server_request_duration_seconds_sum{http_route!=\"/metrics\"}[5m]) / rate(http_server_request_duration_seconds_count{http_route!=\"/metrics\"}[5m])", "legendFormat": "latency" }]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "" },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "yellow", "value": 268435456 },
+            { "color": "red", "value": 536870912 }
+          ]},
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 1 },
+      "id": 4,
+      "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "title": "Heap Memory",
+      "type": "stat",
+      "targets": [{ "expr": "process_runtime_dotnet_gc_heap_size_bytes", "legendFormat": "heap" }]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+      "id": 101,
+      "title": "Ingestion Pipeline",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "" },
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "bars", "stacking": { "mode": "normal" } } }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 6 },
+      "id": 10,
+      "title": "Articles Queued per Symbol (15m)",
+      "type": "timeseries",
+      "targets": [{ "expr": "sum by (symbol)(increase(ingestion_articles_queued_total[15m]))", "legendFormat": "{{symbol}}" }]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "" },
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 6 },
+      "id": 11,
+      "title": "Dedup Hits vs New Articles (1h)",
+      "type": "timeseries",
+      "targets": [
+        { "expr": "sum(increase(ingestion_dedup_hits_total[1h]))", "legendFormat": "Duplicates skipped" },
+        { "expr": "sum(increase(ingestion_articles_queued_total[1h]))", "legendFormat": "New articles queued" },
+        { "expr": "sum(increase(ingestion_articles_filtered_total[1h]))", "legendFormat": "Filtered irrelevant" }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "" },
+      "fieldConfig": { "defaults": { "unit": "s", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 6 },
+      "id": 12,
+      "title": "Ingestion Cycle Duration",
+      "type": "timeseries",
+      "targets": [{ "expr": "ingestion_cycle_duration_seconds", "legendFormat": "cycle duration" }]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 },
+      "id": 102,
+      "title": "AI Analysis Performance",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "" },
+      "fieldConfig": { "defaults": { "unit": "s", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 15 },
+      "id": 20,
+      "title": "Analysis Latency (p50 / p95)",
+      "type": "timeseries",
+      "targets": [
+        { "expr": "histogram_quantile(0.50, rate(analysis_duration_seconds_bucket[5m]))", "legendFormat": "p50" },
+        { "expr": "histogram_quantile(0.95, rate(analysis_duration_seconds_bucket[5m]))", "legendFormat": "p95" }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "" },
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 20, "stacking": { "mode": "normal" } } }, "overrides": [
+        { "matcher": { "id": "byName", "options": "failure" }, "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }] },
+        { "matcher": { "id": "byName", "options": "success" }, "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] }
+      ] },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 15 },
+      "id": 21,
+      "title": "Analysis Success vs Failure",
+      "type": "timeseries",
+      "targets": [
+        { "expr": "sum by (result)(rate(analysis_total[5m]))", "legendFormat": "{{result}}" }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "" },
+      "fieldConfig": { "defaults": { "unit": "s", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 15 },
+      "id": 22,
+      "title": "Ollama Request Duration (p50 / p95)",
+      "type": "timeseries",
+      "targets": [
+        { "expr": "histogram_quantile(0.50, rate(ollama_request_duration_seconds_bucket[5m]))", "legendFormat": "p50" },
+        { "expr": "histogram_quantile(0.95, rate(ollama_request_duration_seconds_bucket[5m]))", "legendFormat": "p95" }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 23 },
+      "id": 23,
+      "title": "Analyses by Symbol (24h)",
+      "type": "piechart",
+      "options": { "legend": { "displayMode": "table", "placement": "right" }, "pieType": "donut" },
+      "targets": [{ "expr": "sum by (symbol)(increase(analysis_total[24h]))", "legendFormat": "{{symbol}}" }]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 31 },
+      "id": 103,
+      "title": "Errors",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "" },
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 10 }, "color": { "mode": "fixed", "fixedColor": "red" } }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 32 },
+      "id": 30,
+      "title": "Ollama Parse Failures",
+      "type": "timeseries",
+      "targets": [{ "expr": "rate(ollama_parse_failures_total[5m])", "legendFormat": "parse failures/s" }]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "" },
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 10 }, "color": { "mode": "fixed", "fixedColor": "orange" } }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 6, "x": 6, "y": 32 },
+      "id": 31,
+      "title": "Reddit 429 Rate Limits",
+      "type": "timeseries",
+      "targets": [{ "expr": "rate(reddit_rate_limits_total[5m])", "legendFormat": "429s/s" }]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "" },
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 10 }, "color": { "mode": "fixed", "fixedColor": "red" } }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 32 },
+      "id": 32,
+      "title": "Ingestion Errors",
+      "type": "timeseries",
+      "targets": [{ "expr": "sum by (symbol)(rate(ingestion_errors_total[5m]))", "legendFormat": "{{symbol}}" }]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "" },
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 10 }, "color": { "mode": "fixed", "fixedColor": "red" } }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 32 },
+      "id": 33,
+      "title": "HTTP 5xx Errors",
+      "type": "timeseries",
+      "targets": [{ "expr": "rate(http_server_request_duration_seconds_count{http_response_status_code=~\"5..\"}[5m])", "legendFormat": "5xx/s" }]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 40 },
+      "id": 104,
+      "title": "Infrastructure",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "" },
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 41 },
+      "id": 40,
+      "title": "Active HTTP Connections",
+      "type": "timeseries",
+      "targets": [{ "expr": "sum(kestrel_active_connections)", "legendFormat": "connections" }]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "" },
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 6, "x": 6, "y": 41 },
+      "id": 41,
+      "title": "Thread Pool Threads",
+      "type": "timeseries",
+      "targets": [{ "expr": "process_runtime_dotnet_thread_pool_threads_count", "legendFormat": "threads" }]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "" },
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 41 },
+      "id": 42,
+      "title": "GC Collections",
+      "type": "timeseries",
+      "targets": [
+        { "expr": "rate(process_runtime_dotnet_gc_collections_total{gc_heap_generation=\"gen0\"}[5m])", "legendFormat": "Gen0" },
+        { "expr": "rate(process_runtime_dotnet_gc_collections_total{gc_heap_generation=\"gen1\"}[5m])", "legendFormat": "Gen1" },
+        { "expr": "rate(process_runtime_dotnet_gc_collections_total{gc_heap_generation=\"gen2\"}[5m])", "legendFormat": "Gen2" }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "" },
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 41 },
+      "id": 43,
+      "title": "Outbound HTTP Calls",
+      "type": "timeseries",
+      "targets": [{ "expr": "sum by (server_address)(rate(http_client_request_duration_seconds_count[5m]))", "legendFormat": "{{server_address}}" }]
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["financial-sentiment-api", "otel"],
+  "templating": { "list": [] },
+  "time": { "from": "now-6h", "to": "now" },
+  "refresh": "30s",
+  "title": "Financial Sentiment API",
+  "uid": "financial-sentiment-api",
+  "version": 1
+}
