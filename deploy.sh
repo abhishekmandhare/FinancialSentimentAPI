@@ -10,10 +10,11 @@ set -euo pipefail
 HOST="truenas_admin@server.home"
 APP_DIR="/mnt/immich-pool/apps/financial-sentiment-api"
 
-# Sync compose files to TrueNAS (picks up new services, config changes)
-echo "Syncing compose files..."
+# Sync compose files, Prometheus config, and Grafana provisioning to TrueNAS
+echo "Syncing config files..."
 scp docker-compose.yml prometheus.yml "$HOST:/tmp/"
-ssh -t "$HOST" "sudo mv /tmp/docker-compose.yml /tmp/prometheus.yml $APP_DIR/"
+scp -r grafana/ "$HOST:/tmp/grafana/"
+ssh -t "$HOST" "sudo mv /tmp/docker-compose.yml /tmp/prometheus.yml $APP_DIR/ && sudo rm -rf $APP_DIR/grafana && sudo mv /tmp/grafana $APP_DIR/"
 
 echo "Pulling latest image and starting all services..."
 ssh -t "$HOST" "cd $APP_DIR && sudo docker compose pull api && sudo docker compose up -d"
