@@ -126,31 +126,65 @@ public class OllamaSentimentService(
     }
 
     /// <summary>
-    /// Fix common LLM JSON errors: stray quotes/backticks between tokens,
-    /// trailing commas before ] or }. Handles cases like:
-    ///   "value"']}  →  "value"]}
-    ///   "value",]   →  "value"]
+    /// Fix common LLM JSON errors so we can parse almost-valid responses:
+    ///   "value"']}    →  "value"]}          (stray single-quotes/backticks)
+    ///   "value",]     →  "value"]           (trailing commas)
+    ///   "value"]"}    →  "value"]}          (stray double-quote before })
+    ///   {"a":1,"b":[  →  {"a":1,"b":[]}    (unclosed brackets)
     /// </summary>
     internal static string SanitizeLlmJson(string json)
     {
-        // Remove stray single-quotes and backticks that appear between valid JSON tokens
-        // e.g. "text"']} → "text"]}
+        // Pass 1: Remove stray quotes/backticks outside of JSON string values
         var sb = new StringBuilder(json.Length);
+        var bracketDepth = 0;
+        var braceDepth = 0;
+
         for (var i = 0; i < json.Length; i++)
         {
             var c = json[i];
-            if (c is '\'' or '`')
-            {
-                // Skip stray quotes that aren't inside a JSON string value
-                // (we only reach here outside of string context since we
-                //  walk character-by-character without entering strings)
-                continue;
-            }
-            sb.Append(c);
 
-            // Skip over JSON string contents so we don't strip quotes inside values
+            // Skip stray single-quotes and backticks outside strings
+            if (c is '\'' or '`')
+                continue;
+
+            // Track bracket/brace depth for unclosed-bracket repair
+            if (c == '{') braceDepth++;
+            else if (c == '}') braceDepth--;
+            else if (c == '[') bracketDepth++;
+            else if (c == ']') bracketDepth--;
+
+            // Skip stray double-quotes outside strings (e.g. "]"} → ]})
             if (c == '"')
             {
+                // Look ahead: if this starts a valid JSON string, copy it through
+                var isStringStart = false;
+                for (var j = i + 1; j < json.Length; j++)
+                {
+                    if (json[j] == '\\' && j + 1 < json.Length)
+                    {
+                        j++; // skip escaped char
+                        continue;
+                    }
+                    if (json[j] == '"')
+                    {
+                        isStringStart = true;
+                        break;
+                    }
+                    // If we hit a structural char before closing quote,
+                    // check if we're past reasonable string length
+                    if (json[j] is '{' or '}' or '[' or ']' && j - i <= 2)
+                    {
+                        // Stray quote — e.g. "} or "] with no string content
+                        isStringStart = false;
+                        break;
+                    }
+                }
+
+                if (!isStringStart)
+                    continue; // drop the stray double-quote
+
+                // Copy the full string (opening quote through closing quote)
+                sb.Append(c);
                 for (var j = i + 1; j < json.Length; j++)
                 {
                     sb.Append(json[j]);
@@ -165,12 +199,30 @@ public class OllamaSentimentService(
                         break;
                     }
                 }
+                continue;
             }
+
+            sb.Append(c);
         }
 
-        // Remove trailing commas before ] or } — e.g. "value",] → "value"]
+        // Pass 2: Remove trailing commas before ] or }
         var result = sb.ToString();
         result = System.Text.RegularExpressions.Regex.Replace(result, @",\s*([}\]])", "$1");
+
+        // Pass 3: Close unclosed brackets/braces
+        // Re-count since pass 1 & 2 may have changed things
+        bracketDepth = 0;
+        braceDepth = 0;
+        foreach (var c in result)
+        {
+            if (c == '[') bracketDepth++;
+            else if (c == ']') bracketDepth--;
+            else if (c == '{') braceDepth++;
+            else if (c == '}') braceDepth--;
+        }
+
+        for (var i = 0; i < bracketDepth; i++) result += ']';
+        for (var i = 0; i < braceDepth; i++) result += '}';
 
         return result;
     }

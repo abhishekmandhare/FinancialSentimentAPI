@@ -10,12 +10,22 @@ set -euo pipefail
 HOST="truenas_admin@server.home"
 APP_DIR="/mnt/immich-pool/apps/financial-sentiment-api"
 
-echo "Pulling latest image and restarting..."
-ssh -t "$HOST" "cd $APP_DIR && sudo docker compose pull api && sudo docker compose up -d api"
+# Sync compose files to TrueNAS (picks up new services, config changes)
+echo "Syncing compose files..."
+scp docker-compose.yml prometheus.yml "$HOST:/tmp/"
+ssh -t "$HOST" "sudo mv /tmp/docker-compose.yml /tmp/prometheus.yml $APP_DIR/"
+
+echo "Pulling latest image and starting all services..."
+ssh -t "$HOST" "cd $APP_DIR && sudo docker compose pull api && sudo docker compose up -d"
 
 echo "Deployed. Checking health..."
 sleep 5
 curl -sf http://server.home:8080/health/live && echo " — API is healthy" || echo " — API not responding yet, check logs"
+
+# Print deployed image version
+echo ""
+echo "Deployed version:"
+ssh -t "$HOST" "cd $APP_DIR && sudo sh -c 'CID=\$(docker compose ps -q api) && docker inspect --format=\"Image: {{.Config.Image}}  Created: {{.Created}}\" \$CID'" || echo "(could not read container info)"
 
 if [[ "${1:-}" == "logs" ]]; then
   ssh -t "$HOST" "cd $APP_DIR && sudo docker compose logs -f --tail 50 api"

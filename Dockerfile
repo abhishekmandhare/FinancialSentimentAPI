@@ -22,7 +22,7 @@ FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
 
 # Npgsql requires libgssapi for Kerberos probing (even when not used)
-RUN apt-get update && apt-get install -y --no-install-recommends libgssapi-krb5-2 && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends libgssapi-krb5-2 curl && rm -rf /var/lib/apt/lists/*
 
 # Non-root user — .NET 10 images ship a built-in 'app' user (UID 1654)
 USER app
