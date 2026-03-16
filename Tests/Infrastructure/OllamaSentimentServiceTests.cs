@@ -21,6 +21,15 @@ public class OllamaSentimentServiceTests
     [InlineData(
         """{"score": 1.0}""",
         """{"score": 1.0}""")]
+    [InlineData(
+        """{"score": 0.4, "confidence": 0.8, "keyReasons": ["TSLA mentioned", "neutral news"]""",
+        """{"score": 0.4, "confidence": 0.8, "keyReasons": ["TSLA mentioned", "neutral news"]}""")]
+    [InlineData(
+        """{"score": 0.8, "confidence": 0.9, "keyReasons": ["Positive mention", "Seeking Alpha reference"]"}""",
+        """{"score": 0.8, "confidence": 0.9, "keyReasons": ["Positive mention", "Seeking Alpha reference"]}""")]
+    [InlineData(
+        """{"score": 0.4, "confidence": 0.9, "keyReasons": ["Positive tone towards AMZN stock", "Question asks about buying AMZN", "Insider Monkey is a reputable source"]"}""",
+        """{"score": 0.4, "confidence": 0.9, "keyReasons": ["Positive tone towards AMZN stock", "Question asks about buying AMZN", "Insider Monkey is a reputable source"]}""")]
     public void SanitizeLlmJson_FixesCommonErrors(string input, string expected)
     {
         var result = OllamaSentimentService.SanitizeLlmJson(input);
