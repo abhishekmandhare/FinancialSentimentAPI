@@ -17,6 +17,13 @@ echo "Deployed. Checking health..."
 sleep 5
 curl -sf http://server.home:8080/health/live && echo " — API is healthy" || echo " — API not responding yet, check logs"
 
+# Print deployed image version (digest + creation date)
+echo ""
+echo "Deployed version:"
+ssh -t "$HOST" "cd $APP_DIR && sudo docker inspect --format='Image: {{.Config.Image}}
+Created: {{.Created}}
+Digest: {{index .RepoDigests 0}}' \$(sudo docker compose ps -q api) 2>/dev/null" || echo "(could not read container info)"
+
 if [[ "${1:-}" == "logs" ]]; then
   ssh -t "$HOST" "cd $APP_DIR && sudo docker compose logs -f --tail 50 api"
 fi
