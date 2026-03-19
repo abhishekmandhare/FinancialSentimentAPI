@@ -13,7 +13,7 @@ APP_DIR="/mnt/immich-pool/apps/financial-sentiment-api"
 # Sync compose files, Prometheus config, and Grafana provisioning to TrueNAS
 echo "Syncing config files..."
 scp docker-compose.yml prometheus.yml "$HOST:/tmp/"
-ssh "$HOST" "rm -rf /tmp/grafana" && scp -r grafana "$HOST:/tmp/grafana"
+ssh "$HOST" "rm -rf /tmp/grafana && mkdir -p /tmp/grafana" && scp -r grafana/* "$HOST:/tmp/grafana/"
 ssh -t "$HOST" "sudo mv /tmp/docker-compose.yml /tmp/prometheus.yml $APP_DIR/ && sudo rm -rf $APP_DIR/grafana && sudo mv /tmp/grafana $APP_DIR/"
 
 echo "Pulling latest image and starting all services..."
