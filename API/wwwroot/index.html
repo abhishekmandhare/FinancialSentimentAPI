@@ -52,14 +52,15 @@
                             <th data-sort="symbol" onclick="toggleSort('symbol')" style="cursor:pointer">Symbol<span class="sort-indicator"></span></th>
                             <th>Price</th>
                             <th class="sparkline-header">5D</th>
-                            <th data-sort="currentAvgScore" onclick="toggleSort('currentAvgScore')" style="cursor:pointer">Score<span class="sort-indicator"></span></th>
-                            <th data-sort="previousAvgScore" onclick="toggleSort('previousAvgScore')" style="cursor:pointer">Prev<span class="sort-indicator"></span></th>
-                            <th data-sort="delta" onclick="toggleSort('delta')" style="cursor:pointer">Delta<span class="sort-indicator"> &#9660;</span></th>
-                            <th>Direction</th>
+                            <th data-sort="score" onclick="toggleSort('score')" style="cursor:pointer">Score<span class="sort-indicator"></span></th>
+                            <th data-sort="delta" onclick="toggleSort('delta')" style="cursor:pointer">Trend<span class="sort-indicator"> &#9660;</span></th>
+                            <th data-sort="dispersion" onclick="toggleSort('dispersion')" style="cursor:pointer">Dispersion<span class="sort-indicator"></span></th>
+                            <th data-sort="articles" onclick="toggleSort('articles')" style="cursor:pointer">Articles<span class="sort-indicator"></span></th>
+                            <th></th>
                         </tr>
                     </thead>
                     <tbody id="trendingBody">
-                        <tr><td colspan="7" class="empty-state">Loading...</td></tr>
+                        <tr><td colspan="8" class="empty-state">Loading...</td></tr>
                     </tbody>
                 </table>
             </div>

@@ -9,4 +9,5 @@ namespace Application.Features.Sentiment.Queries.GetSentimentStats;
 /// </summary>
 public record GetSentimentStatsQuery(
     string Symbol,
-    int Days = 30) : IRequest<SentimentStatsDto>;
+    int Days = 30,
+    int HalfLifeHours = 72) : IRequest<SentimentStatsDto>;

@@ -5,4 +5,7 @@ public record TrendingSymbolDto(
     double CurrentAvgScore,
     double PreviousAvgScore,
     double Delta,
-    string Direction);
+    string Direction,
+    string Trend,
+    double Dispersion,
+    int ArticleCount);

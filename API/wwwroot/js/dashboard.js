@@ -105,24 +105,30 @@ async function loadTrending() {
 function renderTrending(items) {
     const tbody = document.getElementById('trendingBody');
     if (!items.length) {
-        tbody.innerHTML = '<tr><td colspan="7" class="empty-state"><p>No sentiment data yet.</p><p>The ingestion pipeline will populate this automatically.</p></td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" class="empty-state"><p>No sentiment data yet.</p><p>The ingestion pipeline will populate this automatically.</p></td></tr>';
         return;
     }
     tbody.innerHTML = items.map(t => {
         const scoreClass = t.currentAvgScore > 0.1 ? 'positive' : t.currentAvgScore < -0.1 ? 'negative' : 'neutral';
-        const deltaClass = t.delta > 0.01 ? 'up' : t.delta < -0.01 ? 'down' : 'flat';
-        const deltaSign = t.delta > 0 ? '+' : '';
+        const trendColor = t.trend === 'Improving' ? 'var(--green)' :
+                           t.trend === 'Deteriorating' ? 'var(--red)' : 'var(--text-dim)';
         const cached = priceCache[t.symbol];
         const priceHtml = cached ? formatPriceCell(cached) : '<span style="color:var(--text-dim)">&mdash;</span>';
         const sparkHtml = cached ? createSparklineSvg(cached.sparklineData, cached.change >= 0) : '';
-        return `<tr onclick="openDetail('${t.symbol}')">
+        const isCrypto = t.symbol.includes('-USD');
+        const yahooSymbol = t.symbol.replace('-', '-');
+        const detailUrl = isCrypto
+            ? `https://finance.yahoo.com/quote/${encodeURIComponent(yahooSymbol)}/`
+            : `https://finance.yahoo.com/quote/${encodeURIComponent(t.symbol)}/`;
+        return `<tr onclick="openDetail('${t.symbol}')" style="cursor:pointer">
             <td><strong>${t.symbol}</strong><br><span data-name-symbol="${t.symbol}" style="font-size:0.75rem;color:var(--text-dim);font-weight:normal">${symbolName(t.symbol)}</span></td>
             <td class="price-cell" data-price-symbol="${t.symbol}">${priceHtml}</td>
             <td class="sparkline-cell" data-sparkline-symbol="${t.symbol}">${sparkHtml}</td>
             <td class="score ${scoreClass}">${t.currentAvgScore.toFixed(3)}</td>
-            <td class="score" style="color:var(--text-dim)">${t.previousAvgScore.toFixed(3)}</td>
-            <td class="delta ${deltaClass}">${deltaSign}${t.delta.toFixed(3)}</td>
-            <td><span class="direction-badge ${t.direction}">${t.direction}</span></td>
+            <td style="color:${trendColor}">${t.trend}</td>
+            <td>${t.dispersion.toFixed(3)}</td>
+            <td>${t.articleCount}</td>
+            <td><a href="${detailUrl}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="View on Yahoo Finance" style="color:var(--blue, #5b8def);text-decoration:none;font-size:0.85rem">&#x2197;</a></td>
         </tr>`;
     }).join('');
 }
@@ -224,21 +230,39 @@ async function openDetail(symbol) {
 }
 
 function renderStats(s) {
-    const scoreClass = s.averageScore > 0.1 ? 'positive' : s.averageScore < -0.1 ? 'negative' : 'neutral';
+    const scoreClass = s.weightedScore > 0.1 ? 'positive' : s.weightedScore < -0.1 ? 'negative' : 'neutral';
     const trendColor = s.trend.direction === 'Improving' ? 'var(--green)' :
                        s.trend.direction === 'Deteriorating' ? 'var(--red)' : 'var(--text-dim)';
+    const signalColor = s.signalStrength === 'strong' ? 'var(--green)' :
+                        s.signalStrength === 'moderate' ? 'var(--yellow, #f0ad4e)' : 'var(--text-dim)';
+
+    const shiftHtml = (label, val) => {
+        if (val === null || val === undefined) return `<span style="color:var(--text-dim)">—</span>`;
+        const cls = val > 0.01 ? 'up' : val < -0.01 ? 'down' : 'flat';
+        const sign = val > 0 ? '+' : '';
+        return `<span class="delta ${cls}">${sign}${val.toFixed(3)}</span>`;
+    };
+
+    const recentArticle = s.mostRecentArticle
+        ? `<div style="font-size:0.72rem;color:var(--text-dim);margin-top:2px;line-height:1.3;max-height:2.6em;overflow:hidden">${escapeHtml(s.mostRecentArticle.headline)}</div>
+           <div style="font-size:0.68rem;color:var(--text-dim)">${formatDate(s.mostRecentArticle.analyzedAt)}</div>`
+        : '';
 
     document.getElementById('statsGrid').innerHTML = `
         <div class="stat-cell">
-            <div class="stat-label">Avg Score</div>
-            <div class="stat-value score ${scoreClass}">${s.averageScore.toFixed(3)}</div>
+            <div class="stat-label">Weighted Score</div>
+            <div class="stat-value score ${scoreClass}">${s.weightedScore.toFixed(3)}</div>
         </div>
         <div class="stat-cell">
-            <div class="stat-label">Latest Score</div>
-            <div class="stat-value">${s.latestScore.toFixed(3)}</div>
+            <div class="stat-label">Signal</div>
+            <div class="stat-value" style="color:${signalColor};text-transform:capitalize">${s.signalStrength}</div>
         </div>
         <div class="stat-cell">
-            <div class="stat-label">Analyses</div>
+            <div class="stat-label">Dispersion</div>
+            <div class="stat-value">${s.dispersion.toFixed(3)}</div>
+        </div>
+        <div class="stat-cell">
+            <div class="stat-label">Articles</div>
             <div class="stat-value">${s.totalAnalyses}</div>
         </div>
         <div class="stat-cell">
@@ -248,6 +272,12 @@ function renderStats(s) {
         <div class="stat-cell">
             <div class="stat-label">Trend</div>
             <div class="stat-value" style="color:${trendColor}">${s.trend.direction}</div>
+        </div>
+        <div class="stat-cell">
+            <div class="stat-label">Shift vs 24h / 7d</div>
+            <div class="stat-value" style="font-size:0.85rem">
+                ${shiftHtml('24h', s.sentimentShift.vs24h)} / ${shiftHtml('7d', s.sentimentShift.vs7d)}
+            </div>
         </div>
         <div class="stat-cell">
             <div class="stat-label">Distribution</div>
@@ -269,6 +299,14 @@ function renderStats(s) {
             <div class="stat-label">Lowest</div>
             <div class="stat-value score negative">${s.lowestScore.score.toFixed(3)}</div>
             <div style="font-size:0.7rem;color:var(--text-dim)">${formatDate(s.lowestScore.date)}</div>
+        </div>
+        <div class="stat-cell">
+            <div class="stat-label">Latest Score</div>
+            <div class="stat-value">${s.latestScore.toFixed(3)}</div>
+        </div>
+        <div class="stat-cell">
+            <div class="stat-label">Most Recent</div>
+            ${recentArticle || '<div class="stat-value" style="color:var(--text-dim)">—</div>'}
         </div>
     `;
 }

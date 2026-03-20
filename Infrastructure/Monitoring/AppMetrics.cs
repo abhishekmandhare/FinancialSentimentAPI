@@ -63,6 +63,16 @@ public sealed class AppMetrics
         Meter.CreateHistogram<double>("ollama.request.duration", "s",
             "Duration of Ollama HTTP requests");
 
+    // ── AI / FinBERT metrics ─────────────────────────────────────────────────
+
+    public static readonly Counter<long> FinBertErrors =
+        Meter.CreateCounter<long>("finbert.errors", "errors",
+            "FinBERT API errors");
+
+    public static readonly Histogram<double> FinBertRequestDuration =
+        Meter.CreateHistogram<double>("finbert.request.duration", "s",
+            "Duration of FinBERT HTTP requests");
+
     // ── News source metrics ──────────────────────────────────────────────────
 
     public static readonly Counter<long> RedditRateLimits =

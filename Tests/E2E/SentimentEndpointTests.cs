@@ -250,13 +250,18 @@ public class SentimentEndpointTests : IAsyncLifetime
         root.TryGetProperty("period", out _).Should().BeTrue();
         root.TryGetProperty("totalAnalyses", out var total).Should().BeTrue();
         total.GetInt32().Should().BeGreaterOrEqualTo(1);
-        root.TryGetProperty("averageScore", out _).Should().BeTrue();
+        root.TryGetProperty("weightedScore", out _).Should().BeTrue();
         root.TryGetProperty("averageConfidence", out _).Should().BeTrue();
+        root.TryGetProperty("signalStrength", out _).Should().BeTrue();
+        root.TryGetProperty("dispersion", out _).Should().BeTrue();
+        root.TryGetProperty("halfLifeHours", out _).Should().BeTrue();
         root.TryGetProperty("distribution", out _).Should().BeTrue();
         root.TryGetProperty("trend", out _).Should().BeTrue();
         root.TryGetProperty("highestScore", out _).Should().BeTrue();
         root.TryGetProperty("lowestScore", out _).Should().BeTrue();
         root.TryGetProperty("latestScore", out _).Should().BeTrue();
+        root.TryGetProperty("mostRecentArticle", out _).Should().BeTrue();
+        root.TryGetProperty("sentimentShift", out _).Should().BeTrue();
     }
 
     [Fact]

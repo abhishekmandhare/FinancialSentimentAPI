@@ -58,6 +58,20 @@ public static class DependencyInjection
                 });
                 break;
 
+            case "finbert":
+                services.AddOptions<FinBertOptions>()
+                    .Bind(configuration.GetSection(FinBertOptions.SectionName))
+                    .ValidateDataAnnotations()
+                    .ValidateOnStart();
+
+                services.AddHttpClient<IAiSentimentService, FinBertSentimentService>(client =>
+                {
+                    var opts = configuration.GetSection(FinBertOptions.SectionName).Get<FinBertOptions>()!;
+                    client.BaseAddress = new Uri(opts.BaseUrl);
+                    client.Timeout = TimeSpan.FromSeconds(opts.TimeoutSeconds);
+                });
+                break;
+
             default:
                 services.AddSingleton<IAiSentimentService, MockSentimentService>();
                 break;
