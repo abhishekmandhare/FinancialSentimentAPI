@@ -26,7 +26,7 @@
       "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } },
       "title": "Analyses Today",
       "type": "stat",
-      "targets": [{ "expr": "sum(increase(analysis_total[24h]))", "legendFormat": "analyses" }]
+      "targets": [{ "expr": "sum(increase(analysis_analyses_total[24h]))", "legendFormat": "analyses" }]
     },
     {
       "datasource": { "type": "prometheus", "uid": "prometheus" },
@@ -42,7 +42,7 @@
       "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } },
       "title": "Articles Ingested Today",
       "type": "stat",
-      "targets": [{ "expr": "sum(increase(ingestion_articles_queued_total[24h]))", "legendFormat": "articles" }]
+      "targets": [{ "expr": "sum(increase(ingestion_articles_queued_articles_total[24h]))", "legendFormat": "articles" }]
     },
     {
       "datasource": { "type": "prometheus", "uid": "prometheus" },
@@ -82,7 +82,7 @@
       "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } },
       "title": "Heap Memory",
       "type": "stat",
-      "targets": [{ "expr": "dotnet_gc_heap_totalcommitted_size_bytes", "legendFormat": "heap" }]
+      "targets": [{ "expr": "dotnet_gc_last_collection_memory_committed_size_bytes", "legendFormat": "heap" }]
     },
     {
       "collapsed": false,
@@ -98,7 +98,7 @@
       "id": 10,
       "title": "Articles Queued per Symbol (15m)",
       "type": "timeseries",
-      "targets": [{ "expr": "sum by (symbol)(increase(ingestion_articles_queued_total[15m]))", "legendFormat": "{{symbol}}" }]
+      "targets": [{ "expr": "sum by (symbol)(increase(ingestion_articles_queued_articles_total[15m]))", "legendFormat": "{{symbol}}" }]
     },
     {
       "datasource": { "type": "prometheus", "uid": "prometheus" },
@@ -108,9 +108,9 @@
       "title": "Dedup Hits vs New Articles (1h)",
       "type": "timeseries",
       "targets": [
-        { "expr": "sum(increase(ingestion_dedup_hits_total[1h]))", "legendFormat": "Duplicates skipped" },
-        { "expr": "sum(increase(ingestion_articles_queued_total[1h]))", "legendFormat": "New articles queued" },
-        { "expr": "sum(increase(ingestion_articles_filtered_total[1h]))", "legendFormat": "Filtered irrelevant" }
+        { "expr": "sum(increase(ingestion_dedup_hits_articles_total[1h]))", "legendFormat": "Duplicates skipped" },
+        { "expr": "sum(increase(ingestion_articles_queued_articles_total[1h]))", "legendFormat": "New articles queued" },
+        { "expr": "sum(increase(ingestion_articles_filtered_articles_total[1h]))", "legendFormat": "Filtered irrelevant" }
       ]
     },
     {
@@ -120,7 +120,7 @@
       "id": 12,
       "title": "Ingestion Cycle Duration",
       "type": "timeseries",
-      "targets": [{ "expr": "ingestion_cycle_duration_seconds", "legendFormat": "cycle duration" }]
+      "targets": [{ "expr": "histogram_quantile(0.95, rate(ingestion_cycle_duration_seconds_bucket[5m]))", "legendFormat": "p95 cycle duration" }]
     },
     {
       "collapsed": false,
@@ -152,7 +152,7 @@
       "title": "Analysis Success vs Failure",
       "type": "timeseries",
       "targets": [
-        { "expr": "sum by (result)(rate(analysis_total[5m]))", "legendFormat": "{{result}}" }
+        { "expr": "sum by (result)(rate(analysis_analyses_total[5m]))", "legendFormat": "{{result}}" }
       ]
     },
     {
@@ -175,7 +175,7 @@
       "title": "Analyses by Symbol (24h)",
       "type": "piechart",
       "options": { "legend": { "displayMode": "table", "placement": "right" }, "pieType": "donut" },
-      "targets": [{ "expr": "sum by (symbol)(increase(analysis_total[24h]))", "legendFormat": "{{symbol}}" }]
+      "targets": [{ "expr": "sum by (symbol)(increase(analysis_analyses_total[24h]))", "legendFormat": "{{symbol}}" }]
     },
     {
       "collapsed": false,
@@ -200,7 +200,7 @@
       "id": 31,
       "title": "Reddit 429 Rate Limits",
       "type": "timeseries",
-      "targets": [{ "expr": "rate(reddit_rate_limits_total[5m])", "legendFormat": "429s/s" }]
+      "targets": [{ "expr": "rate(reddit_rate_limits_events_total[5m])", "legendFormat": "429s/s" }]
     },
     {
       "datasource": { "type": "prometheus", "uid": "prometheus" },
@@ -243,7 +243,7 @@
       "id": 41,
       "title": "Thread Pool Threads",
       "type": "timeseries",
-      "targets": [{ "expr": "dotnet_thread_pool_thread_count", "legendFormat": "threads" }]
+      "targets": [{ "expr": "dotnet_thread_pool_thread_count_total", "legendFormat": "threads" }]
     },
     {
       "datasource": { "type": "prometheus", "uid": "prometheus" },

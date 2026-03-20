@@ -56,7 +56,7 @@ builder.Services.AddHttpClient("YahooFinance", client =>
 //    });
 
 // ── OpenTelemetry ────────────────────────────────────────────────────────────
-// Traces: ASP.NET Core, HttpClient, EF Core, custom ActivitySource
+// Traces: ASP.NET Core, HttpClient, EF Core, custom ActivitySource → Tempo via OTLP
 // Metrics: ASP.NET Core, HttpClient, .NET runtime, custom Meter → Prometheus /metrics
 builder.Services.AddOpenTelemetry()
     .ConfigureResource(r => r.AddService(AppMetrics.ServiceName))
@@ -64,7 +64,9 @@ builder.Services.AddOpenTelemetry()
         .AddAspNetCoreInstrumentation()
         .AddHttpClientInstrumentation()
         .AddEntityFrameworkCoreInstrumentation()
-        .AddSource(AppMetrics.ServiceName))
+        .AddSource(AppMetrics.ServiceName)
+        .AddOtlpExporter(o => o.Endpoint = new Uri(
+            builder.Configuration["Otel:TempoEndpoint"] ?? "http://tempo:4317")))
     .WithMetrics(metrics => metrics
         .AddAspNetCoreInstrumentation()
         .AddHttpClientInstrumentation()
