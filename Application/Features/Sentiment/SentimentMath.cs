@@ -9,7 +9,7 @@ namespace Application.Features.Sentiment;
 /// </summary>
 public static class SentimentMath
 {
-    public const int DefaultHalfLifeHours = 72; // fallback if no config injected
+    public const int DefaultHalfLifeHours = 36; // fallback if no config injected
 
     public static double DecayWeightedAverage(
         IReadOnlyList<SentimentAnalysis> analyses,

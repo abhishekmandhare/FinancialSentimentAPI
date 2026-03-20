@@ -39,7 +39,7 @@ public class RefreshSnapshotHandlerTests
         };
 
         _sentimentRepo.GetForStatsAsync(
-                Arg.Is<StockSymbol>(s => s.Value == "AAPL"), 7, Arg.Any<CancellationToken>())
+                Arg.Is<StockSymbol>(s => s.Value == "AAPL"), Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns(analyses.AsReadOnly() as IReadOnlyList<SentimentAnalysis>);
 
         _snapshotRepo.GetBySymbolAsync("AAPL", Arg.Any<CancellationToken>())
@@ -64,7 +64,7 @@ public class RefreshSnapshotHandlerTests
         };
 
         _sentimentRepo.GetForStatsAsync(
-                Arg.Is<StockSymbol>(s => s.Value == "TSLA"), 7, Arg.Any<CancellationToken>())
+                Arg.Is<StockSymbol>(s => s.Value == "TSLA"), Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns(analyses.AsReadOnly() as IReadOnlyList<SentimentAnalysis>);
 
         var existing = SymbolSnapshot.Create("TSLA", 0.3, 0.0, 0.3, "up", "Stable", 0.0, 1);
@@ -82,7 +82,7 @@ public class RefreshSnapshotHandlerTests
     public async Task Handle_NoAnalyses_CreatesSnapshotWithZeros()
     {
         _sentimentRepo.GetForStatsAsync(
-                Arg.Any<StockSymbol>(), 7, Arg.Any<CancellationToken>())
+                Arg.Any<StockSymbol>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns(Array.Empty<SentimentAnalysis>() as IReadOnlyList<SentimentAnalysis>);
 
         _snapshotRepo.GetBySymbolAsync("GOOG", Arg.Any<CancellationToken>())

@@ -166,12 +166,12 @@ public class GetWatchlistHandlerTests
             SentimentAnalysis.Create(new StockSymbol("GOOG"), "Good news", null, 0.8, 0.9, [], "test")
         };
         _sentimentRepo.GetForStatsAsync(
-            Arg.Is<StockSymbol>(s => s.Value == "GOOG"), 7, Arg.Any<CancellationToken>())
+            Arg.Is<StockSymbol>(s => s.Value == "GOOG"), Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns(googAnalyses.AsReadOnly() as IReadOnlyList<SentimentAnalysis>);
 
         // TSLA has no sentiment data
         _sentimentRepo.GetForStatsAsync(
-            Arg.Is<StockSymbol>(s => s.Value == "TSLA"), 7, Arg.Any<CancellationToken>())
+            Arg.Is<StockSymbol>(s => s.Value == "TSLA"), Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns(Array.Empty<SentimentAnalysis>() as IReadOnlyList<SentimentAnalysis>);
 
         var result = await CreateHandler().Handle(new GetWatchlistQuery(), CancellationToken.None);
