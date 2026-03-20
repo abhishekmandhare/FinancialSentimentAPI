@@ -144,6 +144,13 @@ FinancialSentimentAPI/
 
 ---
 
+## Documentation
+
+- [Scoring Model](docs/scoring-model.md) — how sentiment scores are computed (decay weighting, trend regression, dispersion, signal strength)
+- [Decision Log](docs/decision-log.md) — architectural decisions and past incidents
+
+---
+
 ## Key Design Decisions
 
 | Decision | Rationale |

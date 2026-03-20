@@ -1,3 +1,4 @@
+using Application.Configuration;
 using Application.Exceptions;
 using Application.Features.Sentiment.Queries.GetSentimentStats;
 using Domain.Entities;
@@ -12,7 +13,7 @@ public class GetSentimentStatsHandlerTests
 {
     private readonly ISentimentRepository _repository = Substitute.For<ISentimentRepository>();
 
-    private GetSentimentStatsQueryHandler CreateHandler() => new(_repository);
+    private GetSentimentStatsQueryHandler CreateHandler() => new(_repository, new SentimentScoringOptions());
 
     private static SentimentAnalysis CreateAnalysis(double score = 0.5, DateTime? analyzedAt = null)
     {

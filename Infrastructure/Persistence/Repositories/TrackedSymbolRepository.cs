@@ -11,12 +11,28 @@ public class TrackedSymbolRepository(AppDbContext db) : ITrackedSymbolRepository
             .OrderBy(s => s.Symbol)
             .ToListAsync(ct);
 
+    public async Task<IReadOnlyList<TrackedSymbol>> GetBySourceAsync(string source, CancellationToken ct = default) =>
+        await db.TrackedSymbols
+            .Where(s => s.Source == source)
+            .OrderBy(s => s.Symbol)
+            .ToListAsync(ct);
+
+    public async Task<TrackedSymbol?> GetBySymbolAsync(string symbol, CancellationToken ct = default) =>
+        await db.TrackedSymbols
+            .FirstOrDefaultAsync(s => s.Symbol == symbol.ToUpperInvariant(), ct);
+
     public Task<bool> ExistsAsync(string symbol, CancellationToken ct = default) =>
         db.TrackedSymbols.AnyAsync(s => s.Symbol == symbol, ct);
 
     public async Task AddAsync(TrackedSymbol symbol, CancellationToken ct = default)
     {
         db.TrackedSymbols.Add(symbol);
+        await db.SaveChangesAsync(ct);
+    }
+
+    public async Task UpdateAsync(TrackedSymbol symbol, CancellationToken ct = default)
+    {
+        db.TrackedSymbols.Update(symbol);
         await db.SaveChangesAsync(ct);
     }
 

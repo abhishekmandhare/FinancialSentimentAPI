@@ -13,6 +13,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 {
     public DbSet<SentimentAnalysis> SentimentAnalyses => Set<SentimentAnalysis>();
     public DbSet<TrackedSymbol> TrackedSymbols => Set<TrackedSymbol>();
+    public DbSet<SymbolSnapshot> SymbolSnapshots => Set<SymbolSnapshot>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

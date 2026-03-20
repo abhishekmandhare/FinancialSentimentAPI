@@ -128,7 +128,8 @@ function renderTrending(items) {
             <td style="color:${trendColor}">${t.trend}</td>
             <td>${t.dispersion.toFixed(3)}</td>
             <td>${t.articleCount}</td>
-            <td><a href="${detailUrl}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="View on Yahoo Finance" style="color:var(--blue, #5b8def);text-decoration:none;font-size:0.85rem">&#x2197;</a></td>
+            <td><a href="${detailUrl}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="View on Yahoo Finance" style="color:var(--blue, #5b8def);text-decoration:none;font-size:0.85rem">&#x2197;</a>
+                <button class="watchlist-plus-btn" onclick="event.stopPropagation(); addToWatchlist('${t.symbol}')" title="Add to watchlist">+</button></td>
         </tr>`;
     }).join('');
 }
@@ -352,10 +353,98 @@ function hideError() {
     document.getElementById('errorBanner').classList.remove('visible');
 }
 
+// -- Watchlist ----------------------------------------------------
+
+async function loadWatchlist() {
+    try {
+        const res = await fetch(`${API}/api/watchlist`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        renderWatchlist(data);
+    } catch (e) {
+        const tbody = document.getElementById('watchlistBody');
+        tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Failed to load watchlist</td></tr>';
+    }
+}
+
+function renderWatchlist(items) {
+    const tbody = document.getElementById('watchlistBody');
+    if (!items.length) {
+        tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No symbols in your watchlist. Add one above or click + on a trending symbol.</td></tr>';
+        return;
+    }
+    tbody.innerHTML = items.map(w => {
+        const scoreClass = w.score > 0.1 ? 'positive' : w.score < -0.1 ? 'negative' : 'neutral';
+        const trendColor = w.trend === 'Improving' ? 'var(--green)' :
+                           w.trend === 'Deteriorating' ? 'var(--red)' : 'var(--text-dim)';
+        const yahooUrl = `https://finance.yahoo.com/quote/${encodeURIComponent(w.symbol)}/`;
+        return `<tr onclick="openDetail('${w.symbol}')" style="cursor:pointer">
+            <td><strong>${w.symbol}</strong></td>
+            <td class="score ${scoreClass}">${w.score.toFixed(3)}</td>
+            <td style="color:${trendColor}">${w.trend}</td>
+            <td>${w.dispersion.toFixed(3)}</td>
+            <td>${w.articleCount}</td>
+            <td><a href="${yahooUrl}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="View on Yahoo Finance" style="color:var(--blue, #5b8def);text-decoration:none;font-size:0.85rem">&#x2197;</a></td>
+            <td><button class="remove-btn" onclick="event.stopPropagation(); removeFromWatchlist('${w.symbol}')" title="Remove from watchlist">&times;</button></td>
+        </tr>`;
+    }).join('');
+}
+
+async function addToWatchlist(symbol) {
+    const input = document.getElementById('watchlistInput');
+    const errorEl = document.getElementById('watchlistError');
+    const btn = document.getElementById('watchlistAddBtn');
+    const sym = symbol || input.value.trim().toUpperCase();
+
+    if (!sym) return;
+
+    errorEl.textContent = '';
+    errorEl.classList.remove('visible');
+    btn.disabled = true;
+    btn.textContent = '...';
+
+    try {
+        const res = await fetch(`${API}/api/watchlist`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ symbol: sym })
+        });
+
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }));
+            throw new Error(err.detail || err.title || `HTTP ${res.status}`);
+        }
+
+        input.value = '';
+        loadWatchlist();
+    } catch (e) {
+        errorEl.textContent = e.message;
+        errorEl.classList.add('visible');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Add';
+    }
+}
+
+async function removeFromWatchlist(symbol) {
+    try {
+        await fetch(`${API}/api/watchlist/${encodeURIComponent(symbol)}`, { method: 'DELETE' });
+        loadWatchlist();
+    } catch (e) {
+        // Silently fail — next refresh will correct
+    }
+}
+
 // -- Init ---------------------------------------------------------
 
 function initDashboard() {
     updateSortIndicators();
     loadTrending();
-    refreshTimer = setInterval(loadTrending, 30000);
+    loadWatchlist();
+    refreshTimer = setInterval(() => { loadTrending(); loadWatchlist(); }, 30000);
+
+    // Enter key on watchlist input
+    document.getElementById('watchlistInput').addEventListener('keydown', e => {
+        if (e.key === 'Enter') addToWatchlist();
+    });
 }

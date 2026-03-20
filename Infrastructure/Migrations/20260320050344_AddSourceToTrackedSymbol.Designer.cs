@@ -3,6 +3,7 @@ using System;
 using Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260320050344_AddSourceToTrackedSymbol")]
+    partial class AddSourceToTrackedSymbol
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -82,54 +85,6 @@ namespace Infrastructure.Migrations
                         .HasDatabaseName("IX_SentimentAnalyses_Symbol_AnalyzedAt");
 
                     b.ToTable("SentimentAnalyses", (string)null);
-                });
-
-            modelBuilder.Entity("Domain.Entities.SymbolSnapshot", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<int>("ArticleCount")
-                        .HasColumnType("integer");
-
-                    b.Property<double>("Delta")
-                        .HasColumnType("double precision");
-
-                    b.Property<string>("Direction")
-                        .IsRequired()
-                        .HasMaxLength(10)
-                        .HasColumnType("character varying(10)");
-
-                    b.Property<double>("Dispersion")
-                        .HasColumnType("double precision");
-
-                    b.Property<double>("PreviousScore")
-                        .HasColumnType("double precision");
-
-                    b.Property<double>("Score")
-                        .HasColumnType("double precision");
-
-                    b.Property<string>("Symbol")
-                        .IsRequired()
-                        .HasMaxLength(10)
-                        .HasColumnType("character varying(10)");
-
-                    b.Property<string>("Trend")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Symbol")
-                        .IsUnique()
-                        .HasDatabaseName("IX_SymbolSnapshots_Symbol");
-
-                    b.ToTable("SymbolSnapshots", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.TrackedSymbol", b =>

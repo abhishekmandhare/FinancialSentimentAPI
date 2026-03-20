@@ -1,3 +1,5 @@
+using Application.Features.Sentiment;
+
 namespace Application.Features.Sentiment.Queries.GetSentimentStats;
 
 public record SentimentStatsDto(
@@ -19,11 +21,6 @@ public record SentimentStatsDto(
     SentimentShift SentimentShift);
 
 public record StatsPeriod(DateTime From, DateTime To, int Days);
-
-public record SentimentDistribution(
-    double PositivePercent,
-    double NeutralPercent,
-    double NegativePercent);
 
 public record SentimentTrend(
     string Direction,   // "Improving" | "Deteriorating" | "Stable"

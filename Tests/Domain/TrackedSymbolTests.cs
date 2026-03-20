@@ -58,4 +58,41 @@ public class TrackedSymbolTests
         var b = TrackedSymbol.Create("AAPL");
         a.Id.Should().NotBe(b.Id);
     }
+
+    [Fact]
+    public void Create_DefaultSource_IsSeed()
+    {
+        var symbol = TrackedSymbol.Create("AAPL");
+        symbol.Source.Should().Be("seed");
+    }
+
+    [Fact]
+    public void Create_WatchlistSource_SetsCorrectly()
+    {
+        var symbol = TrackedSymbol.Create("GOOG", "watchlist");
+        symbol.Source.Should().Be("watchlist");
+    }
+
+    [Fact]
+    public void Create_InvalidSource_ThrowsDomainException()
+    {
+        var act = () => TrackedSymbol.Create("AAPL", "invalid");
+        act.Should().Throw<DomainException>().WithMessage("*seed*watchlist*");
+    }
+
+    [Fact]
+    public void UpdateSource_ValidSource_UpdatesCorrectly()
+    {
+        var symbol = TrackedSymbol.Create("AAPL", "seed");
+        symbol.UpdateSource("watchlist");
+        symbol.Source.Should().Be("watchlist");
+    }
+
+    [Fact]
+    public void UpdateSource_InvalidSource_ThrowsDomainException()
+    {
+        var symbol = TrackedSymbol.Create("AAPL");
+        var act = () => symbol.UpdateSource("bad");
+        act.Should().Throw<DomainException>().WithMessage("*seed*watchlist*");
+    }
 }

@@ -43,6 +43,32 @@
                 <div class="history-list" id="historyList"></div>
             </div>
 
+            <!-- My Watchlist -->
+            <p class="section-title">My Watchlist</p>
+            <div class="card watchlist-card">
+                <div class="watchlist-add">
+                    <input type="text" id="watchlistInput" placeholder="Add symbol (e.g. GOOG)" maxlength="10" />
+                    <button id="watchlistAddBtn" onclick="addToWatchlist()">Add</button>
+                </div>
+                <div class="watchlist-error" id="watchlistError"></div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Symbol</th>
+                            <th>Score</th>
+                            <th>Trend</th>
+                            <th>Dispersion</th>
+                            <th>Articles</th>
+                            <th></th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="watchlistBody">
+                        <tr><td colspan="7" class="empty-state">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
             <!-- Trending Table -->
             <p class="section-title">Trending Symbols (24h)</p>
             <div class="card">

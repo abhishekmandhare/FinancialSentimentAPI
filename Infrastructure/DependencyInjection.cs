@@ -1,3 +1,4 @@
+using Application.Configuration;
 using Application.Services;
 using Domain.Interfaces;
 using Infrastructure.Ingestion;
@@ -25,7 +26,14 @@ public static class DependencyInjection
         services.AddScoped<ISentimentRepository, SentimentRepository>();
         services.AddScoped<ITrackedSymbolRepository, TrackedSymbolRepository>();
         services.AddScoped<ITrackedSymbolsProvider, DbTrackedSymbolsProvider>();
+        services.AddScoped<ISymbolSnapshotRepository, SymbolSnapshotRepository>();
         services.AddScoped<ISystemStatsRepository, SystemStatsRepository>();
+
+        // --- Scoring Configuration ---
+        var scoringOptions = configuration
+            .GetSection(SentimentScoringOptions.SectionName)
+            .Get<SentimentScoringOptions>() ?? new SentimentScoringOptions();
+        services.AddSingleton(scoringOptions);
 
         // --- AI Service (switchable via config) ---
         var aiProvider = configuration["AI:Provider"] ?? "Mock";
@@ -76,6 +84,13 @@ public static class DependencyInjection
                 services.AddSingleton<IAiSentimentService, MockSentimentService>();
                 break;
         }
+
+        // --- Symbol Validation ---
+        services.AddHttpClient<ISymbolValidationService, YahooSymbolValidationService>(client =>
+        {
+            client.DefaultRequestHeaders.UserAgent.ParseAdd(
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
+        });
 
         // --- Ingestion Pipeline ---
         services.Configure<IngestionOptions>(

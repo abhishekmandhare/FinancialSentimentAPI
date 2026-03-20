@@ -20,6 +20,12 @@ public class TrackedSymbolConfiguration : IEntityTypeConfiguration<TrackedSymbol
             .HasMaxLength(10)
             .IsRequired();
 
+        builder.Property(s => s.Source)
+            .HasColumnName("Source")
+            .HasMaxLength(20)
+            .HasDefaultValue("seed")
+            .IsRequired();
+
         builder.Property(s => s.AddedAt)
             .HasColumnName("AddedAt")
             .IsRequired();
