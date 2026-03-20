@@ -10,8 +10,16 @@ namespace Tests.Application;
 public class GetTrendingSymbolsHandlerTests
 {
     private readonly ISentimentRepository _repository = Substitute.For<ISentimentRepository>();
+    private readonly ISymbolSnapshotRepository _snapshotRepository = Substitute.For<ISymbolSnapshotRepository>();
 
-    private GetTrendingSymbolsQueryHandler CreateHandler() => new(_repository);
+    public GetTrendingSymbolsHandlerTests()
+    {
+        // Default: no snapshots → tests exercise the fallback (live computation) path
+        _snapshotRepository.GetAllAsync(Arg.Any<CancellationToken>())
+            .Returns(new List<SymbolSnapshot>());
+    }
+
+    private GetTrendingSymbolsQueryHandler CreateHandler() => new(_repository, _snapshotRepository);
 
     private static SentimentAnalysis MakeAnalysis(string symbol, double score, DateTime analyzedAt)
     {

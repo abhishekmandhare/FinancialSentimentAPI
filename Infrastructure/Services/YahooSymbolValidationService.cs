@@ -30,9 +30,19 @@ public class YahooSymbolValidationService(
 
             return result.GetArrayLength() > 0;
         }
-        catch (Exception ex)
+        catch (HttpRequestException ex)
         {
-            logger.LogWarning(ex, "Yahoo Finance validation failed for symbol {Symbol}", symbol);
+            logger.LogWarning(ex, "Yahoo Finance HTTP error validating symbol {Symbol}", symbol);
+            return false;
+        }
+        catch (TaskCanceledException ex)
+        {
+            logger.LogWarning(ex, "Yahoo Finance request timed out for symbol {Symbol}", symbol);
+            return false;
+        }
+        catch (JsonException ex)
+        {
+            logger.LogWarning(ex, "Yahoo Finance returned invalid JSON for symbol {Symbol}", symbol);
             return false;
         }
     }

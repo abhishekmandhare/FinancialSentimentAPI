@@ -4,12 +4,35 @@ using MediatR;
 
 namespace Application.Features.Sentiment.Queries.GetTrendingSymbols;
 
-public class GetTrendingSymbolsQueryHandler(ISentimentRepository repository)
+public class GetTrendingSymbolsQueryHandler(
+    ISentimentRepository repository,
+    ISymbolSnapshotRepository snapshotRepository)
     : IRequestHandler<GetTrendingSymbolsQuery, IReadOnlyList<TrendingSymbolDto>>
 {
     public async Task<IReadOnlyList<TrendingSymbolDto>> Handle(
         GetTrendingSymbolsQuery query,
         CancellationToken ct)
+    {
+        // Fast path: read precomputed snapshots
+        var snapshots = await snapshotRepository.GetAllAsync(ct);
+
+        if (snapshots.Count > 0)
+        {
+            var dtos = snapshots.Select(s => new TrendingSymbolDto(
+                s.Symbol, s.Score, s.PreviousScore, s.Delta, s.Direction,
+                s.Trend, s.Dispersion, s.ArticleCount));
+
+            return ApplySort(dtos, query.SortBy, query.SortDirection)
+                .Take(query.Limit)
+                .ToList();
+        }
+
+        // Fallback: compute on-the-fly (cold start, no snapshots yet)
+        return await ComputeLive(query, ct);
+    }
+
+    private async Task<IReadOnlyList<TrendingSymbolDto>> ComputeLive(
+        GetTrendingSymbolsQuery query, CancellationToken ct)
     {
         var now = DateTime.UtcNow;
         var windowStart = now.AddHours(-query.Hours);
@@ -25,13 +48,9 @@ public class GetTrendingSymbolsQueryHandler(ISentimentRepository repository)
         var unordered = grouped
             .Select(g => ComputeTrend(g.Key, g.ToList(), midpoint, now));
 
-        var sorted = ApplySort(unordered, query.SortBy, query.SortDirection);
-
-        var results = sorted
+        return ApplySort(unordered, query.SortBy, query.SortDirection)
             .Take(query.Limit)
             .ToList();
-
-        return results;
     }
 
     private static IOrderedEnumerable<TrendingSymbolDto> ApplySort(

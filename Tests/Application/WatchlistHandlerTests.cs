@@ -134,8 +134,9 @@ public class GetWatchlistHandlerTests
 {
     private readonly ITrackedSymbolRepository _trackedRepo = Substitute.For<ITrackedSymbolRepository>();
     private readonly ISentimentRepository _sentimentRepo = Substitute.For<ISentimentRepository>();
+    private readonly ISymbolSnapshotRepository _snapshotRepo = Substitute.For<ISymbolSnapshotRepository>();
 
-    private GetWatchlistQueryHandler CreateHandler() => new(_trackedRepo, _sentimentRepo);
+    private GetWatchlistQueryHandler CreateHandler() => new(_trackedRepo, _sentimentRepo, _snapshotRepo);
 
     [Fact]
     public async Task Handle_NoWatchlistSymbols_ReturnsEmpty()

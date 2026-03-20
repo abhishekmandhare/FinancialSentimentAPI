@@ -7,7 +7,8 @@ namespace Application.Features.Watchlist.Queries.GetWatchlist;
 
 public class GetWatchlistQueryHandler(
     ITrackedSymbolRepository trackedSymbolRepository,
-    ISentimentRepository sentimentRepository)
+    ISentimentRepository sentimentRepository,
+    ISymbolSnapshotRepository snapshotRepository)
     : IRequestHandler<GetWatchlistQuery, IReadOnlyList<WatchlistSymbolDto>>
 {
     private const int DataWindowDays = 7;
@@ -25,6 +26,18 @@ public class GetWatchlistQueryHandler(
 
         foreach (var tracked in watchlistSymbols)
         {
+            // Fast path: read precomputed snapshot
+            var snapshot = await snapshotRepository.GetBySymbolAsync(tracked.Symbol, ct);
+
+            if (snapshot is not null)
+            {
+                results.Add(new WatchlistSymbolDto(
+                    tracked.Symbol, tracked.AddedAt,
+                    snapshot.Score, snapshot.Trend, snapshot.Dispersion, snapshot.ArticleCount));
+                continue;
+            }
+
+            // Fallback: compute on-the-fly (new symbol, no snapshot yet)
             var analyses = await sentimentRepository.GetForStatsAsync(
                 new StockSymbol(tracked.Symbol), DataWindowDays, ct);
 
@@ -33,12 +46,8 @@ public class GetWatchlistQueryHandler(
             var dispersion = SentimentMath.CalculateDispersion(analyses, now);
 
             results.Add(new WatchlistSymbolDto(
-                tracked.Symbol,
-                tracked.AddedAt,
-                Math.Round(score, 4),
-                trend,
-                dispersion,
-                analyses.Count));
+                tracked.Symbol, tracked.AddedAt,
+                Math.Round(score, 4), trend, dispersion, analyses.Count));
         }
 
         return results;
