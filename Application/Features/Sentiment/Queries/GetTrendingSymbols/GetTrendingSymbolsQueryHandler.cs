@@ -85,6 +85,6 @@ public class GetTrendingSymbolsQueryHandler(
     {
         var stats = SentimentMath.ComputeSymbolStats(analyses, now, windowHours, halfLifeHours);
         return new TrendingSymbolDto(symbol, stats.Score, stats.PreviousScore,
-            stats.Delta, stats.Direction, stats.Trend, stats.Dispersion, stats.ArticleCount);
+            stats.Delta, stats.Direction, stats.Trend.Direction, stats.Dispersion, stats.ArticleCount);
     }
 }

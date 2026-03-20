@@ -38,14 +38,14 @@ public class RefreshSnapshotHandler(
             if (existing is not null)
             {
                 existing.Update(stats.Score, stats.PreviousScore, stats.Delta,
-                    stats.Direction, stats.Trend, stats.Dispersion, stats.ArticleCount);
+                    stats.Direction, stats.Trend.Direction, stats.Dispersion, stats.ArticleCount);
                 await snapshotRepository.UpsertAsync(existing, ct);
             }
             else
             {
                 var snapshot = SymbolSnapshot.Create(
                     symbol, stats.Score, stats.PreviousScore, stats.Delta,
-                    stats.Direction, stats.Trend, stats.Dispersion, stats.ArticleCount);
+                    stats.Direction, stats.Trend.Direction, stats.Dispersion, stats.ArticleCount);
                 await snapshotRepository.UpsertAsync(snapshot, ct);
             }
         }

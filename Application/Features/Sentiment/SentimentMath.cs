@@ -43,7 +43,7 @@ public static class SentimentMath
     public static SymbolStats ComputeSymbolStats(
         IReadOnlyList<SentimentAnalysis> analyses,
         DateTime now,
-        double windowHours = 7 * 24,
+        double windowHours = 14 * 24,
         int halfLifeHours = DefaultHalfLifeHours)
     {
         var midpoint = now.AddHours(-windowHours / 2.0);
@@ -62,10 +62,19 @@ public static class SentimentMath
             _ => "flat"
         };
 
-        var trend = CalculateTrendDirection(analyses);
+        var trend = CalculateTrend(analyses);
         var dispersion = CalculateDispersion(analyses, now, halfLifeHours);
+        var totalWeight = TotalDecayWeight(analyses, now, halfLifeHours);
+        var signalStrength = ClassifySignalStrength(totalWeight);
+        var distribution = ComputeDistribution(analyses);
+        var shift = ComputeSentimentShift(analyses, now, halfLifeHours);
+        var impactful = MostImpactful(analyses, now, halfLifeHours);
 
-        return new SymbolStats(score, previousScore, delta, direction, trend, dispersion, analyses.Count);
+        return new SymbolStats(
+            score, previousScore, delta, direction,
+            trend, dispersion, analyses.Count,
+            totalWeight, signalStrength, distribution,
+            shift, impactful);
     }
 
     public static double CalculateDispersion(
@@ -264,8 +273,13 @@ public record SymbolStats(
     double PreviousScore,
     double Delta,
     string Direction,
-    string Trend,
+    TrendResult Trend,
     double Dispersion,
-    int ArticleCount);
+    int ArticleCount,
+    double TotalWeight,
+    string SignalStrength,
+    SentimentDistribution Distribution,
+    (double? Vs24h, double? Vs7d) Shift,
+    (SentimentAnalysis Analysis, double Weight)? MostImpactful);
 
 public record TrendResult(string Direction, double Slope);

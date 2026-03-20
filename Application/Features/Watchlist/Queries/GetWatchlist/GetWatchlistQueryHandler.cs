@@ -47,7 +47,7 @@ public class GetWatchlistQueryHandler(
 
             results.Add(new WatchlistSymbolDto(
                 tracked.Symbol, tracked.AddedAt,
-                stats.Score, stats.Trend, stats.Dispersion, stats.ArticleCount));
+                stats.Score, stats.Trend.Direction, stats.Dispersion, stats.ArticleCount));
         }
 
         return results;
