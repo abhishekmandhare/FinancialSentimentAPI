@@ -16,6 +16,9 @@ scp docker-compose.yml prometheus.yml tempo.yml "$HOST:/tmp/"
 ssh "$HOST" "rm -rf /tmp/grafana && mkdir -p /tmp/grafana" && scp -r grafana/* "$HOST:/tmp/grafana/"
 ssh -t "$HOST" "sudo mv /tmp/docker-compose.yml /tmp/prometheus.yml /tmp/tempo.yml $APP_DIR/ && sudo rm -rf $APP_DIR/grafana && sudo mv /tmp/grafana $APP_DIR/"
 
+echo "Resetting Grafana volume for clean provisioning..."
+ssh -t "$HOST" "cd $APP_DIR && sudo docker rm -f \$(sudo docker compose ps -q grafana) 2>/dev/null; sudo docker volume rm \$(sudo docker volume ls -q | grep grafana_data) 2>/dev/null; true"
+
 echo "Pulling latest image and starting all services..."
 ssh -t "$HOST" "cd $APP_DIR && sudo docker compose pull api && sudo docker compose up -d"
 
