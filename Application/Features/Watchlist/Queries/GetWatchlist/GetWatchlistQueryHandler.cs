@@ -41,13 +41,11 @@ public class GetWatchlistQueryHandler(
             var analyses = await sentimentRepository.GetForStatsAsync(
                 new StockSymbol(tracked.Symbol), DataWindowDays, ct);
 
-            var score = SentimentMath.DecayWeightedAverage(analyses, now);
-            var trend = SentimentMath.CalculateTrendDirection(analyses);
-            var dispersion = SentimentMath.CalculateDispersion(analyses, now);
+            var stats = SentimentMath.ComputeSymbolStats(analyses, now, DataWindowDays * 24);
 
             results.Add(new WatchlistSymbolDto(
                 tracked.Symbol, tracked.AddedAt,
-                Math.Round(score, 4), trend, dispersion, analyses.Count));
+                stats.Score, stats.Trend, stats.Dispersion, stats.ArticleCount));
         }
 
         return results;

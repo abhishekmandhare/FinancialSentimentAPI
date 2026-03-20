@@ -36,7 +36,6 @@ public class GetTrendingSymbolsQueryHandler(
     {
         var now = DateTime.UtcNow;
         var windowStart = now.AddHours(-query.Hours);
-        var midpoint = now.AddHours(-query.Hours / 2.0);
 
         var analyses = await repository.GetRecentAsync(windowStart, ct);
 
@@ -46,7 +45,7 @@ public class GetTrendingSymbolsQueryHandler(
         var grouped = analyses.GroupBy(a => a.Symbol.Value);
 
         var unordered = grouped
-            .Select(g => ComputeTrend(g.Key, g.ToList(), midpoint, now));
+            .Select(g => ComputeTrend(g.Key, g.ToList(), now, query.Hours));
 
         return ApplySort(unordered, query.SortBy, query.SortDirection)
             .Take(query.Limit)
@@ -77,30 +76,11 @@ public class GetTrendingSymbolsQueryHandler(
     private static TrendingSymbolDto ComputeTrend(
         string symbol,
         IReadOnlyList<SentimentAnalysis> analyses,
-        DateTime midpoint,
-        DateTime now)
+        DateTime now,
+        int windowHours = 7 * 24)
     {
-        var current  = analyses.Where(a => a.AnalyzedAt >= midpoint).ToList();
-        var previous = analyses.Where(a => a.AnalyzedAt <  midpoint).ToList();
-
-        var currentAvg  = SentimentMath.DecayWeightedAverage(current, now);
-        var previousAvg = SentimentMath.DecayWeightedAverage(previous, midpoint);
-
-        var delta = Math.Round(currentAvg - previousAvg, 4);
-        currentAvg  = Math.Round(currentAvg,  4);
-        previousAvg = Math.Round(previousAvg, 4);
-
-        var direction = delta switch
-        {
-            > 0  => "up",
-            < 0  => "down",
-            _    => "flat"
-        };
-
-        var trend = SentimentMath.CalculateTrendDirection(analyses);
-        var dispersion = SentimentMath.CalculateDispersion(analyses, now);
-
-        return new TrendingSymbolDto(symbol, currentAvg, previousAvg, delta, direction,
-            trend, dispersion, analyses.Count);
+        var stats = SentimentMath.ComputeSymbolStats(analyses, now, windowHours);
+        return new TrendingSymbolDto(symbol, stats.Score, stats.PreviousScore,
+            stats.Delta, stats.Direction, stats.Trend, stats.Dispersion, stats.ArticleCount);
     }
 }

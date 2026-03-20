@@ -24,39 +24,25 @@ public class RefreshSnapshotHandler(
         {
             var symbol = notification.Symbol;
             var now = DateTime.UtcNow;
-            var midpoint = now.AddDays(-DataWindowDays / 2.0);
 
             var analyses = await sentimentRepository.GetForStatsAsync(
                 new StockSymbol(symbol), DataWindowDays, ct);
 
-            var current = analyses.Where(a => a.AnalyzedAt >= midpoint).ToList();
-            var previous = analyses.Where(a => a.AnalyzedAt < midpoint).ToList();
-
-            var currentAvg = Math.Round(SentimentMath.DecayWeightedAverage(current, now), 4);
-            var previousAvg = Math.Round(SentimentMath.DecayWeightedAverage(previous, midpoint), 4);
-            var delta = Math.Round(currentAvg - previousAvg, 4);
-
-            var direction = delta switch
-            {
-                > 0 => "up",
-                < 0 => "down",
-                _ => "flat"
-            };
-
-            var trend = SentimentMath.CalculateTrendDirection(analyses);
-            var dispersion = SentimentMath.CalculateDispersion(analyses, now);
+            var stats = SentimentMath.ComputeSymbolStats(analyses, now, DataWindowDays * 24);
 
             var existing = await snapshotRepository.GetBySymbolAsync(symbol, ct);
 
             if (existing is not null)
             {
-                existing.Update(currentAvg, previousAvg, delta, direction, trend, dispersion, analyses.Count);
+                existing.Update(stats.Score, stats.PreviousScore, stats.Delta,
+                    stats.Direction, stats.Trend, stats.Dispersion, stats.ArticleCount);
                 await snapshotRepository.UpsertAsync(existing, ct);
             }
             else
             {
                 var snapshot = SymbolSnapshot.Create(
-                    symbol, currentAvg, previousAvg, delta, direction, trend, dispersion, analyses.Count);
+                    symbol, stats.Score, stats.PreviousScore, stats.Delta,
+                    stats.Direction, stats.Trend, stats.Dispersion, stats.ArticleCount);
                 await snapshotRepository.UpsertAsync(snapshot, ct);
             }
         }

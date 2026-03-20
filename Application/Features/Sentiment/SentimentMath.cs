@@ -62,6 +62,37 @@ public static class SentimentMath
         };
     }
 
+    /// <summary>
+    /// Computes all symbol stats in one call: score, previousScore, delta, direction, trend, dispersion, count.
+    /// Used by ingestion snapshots, trending fallback, and watchlist fallback.
+    /// </summary>
+    public static SymbolStats ComputeSymbolStats(
+        IReadOnlyList<SentimentAnalysis> analyses,
+        DateTime now,
+        double windowHours = 7 * 24)
+    {
+        var midpoint = now.AddHours(-windowHours / 2.0);
+
+        var current = analyses.Where(a => a.AnalyzedAt >= midpoint).ToList();
+        var previous = analyses.Where(a => a.AnalyzedAt < midpoint).ToList();
+
+        var score = Math.Round(DecayWeightedAverage(current, now), 4);
+        var previousScore = Math.Round(DecayWeightedAverage(previous, midpoint), 4);
+        var delta = Math.Round(score - previousScore, 4);
+
+        var direction = delta switch
+        {
+            > 0 => "up",
+            < 0 => "down",
+            _ => "flat"
+        };
+
+        var trend = CalculateTrendDirection(analyses);
+        var dispersion = CalculateDispersion(analyses, now);
+
+        return new SymbolStats(score, previousScore, delta, direction, trend, dispersion, analyses.Count);
+    }
+
     public static double CalculateDispersion(
         IReadOnlyList<SentimentAnalysis> analyses,
         DateTime now,
@@ -95,3 +126,12 @@ public static class SentimentMath
         return Math.Round(Math.Sqrt(varianceSum / totalWeight), 4);
     }
 }
+
+public record SymbolStats(
+    double Score,
+    double PreviousScore,
+    double Delta,
+    string Direction,
+    string Trend,
+    double Dispersion,
+    int ArticleCount);
