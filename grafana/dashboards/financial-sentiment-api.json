@@ -13,7 +13,7 @@
       "type": "row"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "" },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": {
         "defaults": {
           "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
@@ -26,10 +26,10 @@
       "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } },
       "title": "Analyses Today",
       "type": "stat",
-      "targets": [{ "expr": "sum(increase(analysis_total[24h]))", "legendFormat": "analyses" }]
+      "targets": [{ "expr": "sum(increase(analysis_analyses_total[24h]))", "legendFormat": "analyses" }]
     },
     {
-      "datasource": { "type": "prometheus", "uid": "" },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": {
         "defaults": {
           "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] },
@@ -42,10 +42,10 @@
       "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } },
       "title": "Articles Ingested Today",
       "type": "stat",
-      "targets": [{ "expr": "sum(increase(ingestion_articles_queued_total[24h]))", "legendFormat": "articles" }]
+      "targets": [{ "expr": "sum(increase(ingestion_articles_queued_articles_total[24h]))", "legendFormat": "articles" }]
     },
     {
-      "datasource": { "type": "prometheus", "uid": "" },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": {
         "defaults": {
           "thresholds": { "mode": "absolute", "steps": [
@@ -65,7 +65,7 @@
       "targets": [{ "expr": "rate(http_server_request_duration_seconds_sum{http_route!=\"/metrics\"}[5m]) / rate(http_server_request_duration_seconds_count{http_route!=\"/metrics\"}[5m])", "legendFormat": "latency" }]
     },
     {
-      "datasource": { "type": "prometheus", "uid": "" },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": {
         "defaults": {
           "thresholds": { "mode": "absolute", "steps": [
@@ -82,7 +82,7 @@
       "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } },
       "title": "Heap Memory",
       "type": "stat",
-      "targets": [{ "expr": "process_runtime_dotnet_gc_heap_size_bytes", "legendFormat": "heap" }]
+      "targets": [{ "expr": "dotnet_gc_last_collection_memory_committed_size_bytes", "legendFormat": "heap" }]
     },
     {
       "collapsed": false,
@@ -92,35 +92,35 @@
       "type": "row"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "" },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "bars", "stacking": { "mode": "normal" } } }, "overrides": [] },
       "gridPos": { "h": 8, "w": 8, "x": 0, "y": 6 },
       "id": 10,
       "title": "Articles Queued per Symbol (15m)",
       "type": "timeseries",
-      "targets": [{ "expr": "sum by (symbol)(increase(ingestion_articles_queued_total[15m]))", "legendFormat": "{{symbol}}" }]
+      "targets": [{ "expr": "sum by (symbol)(increase(ingestion_articles_queued_articles_total[15m]))", "legendFormat": "{{symbol}}" }]
     },
     {
-      "datasource": { "type": "prometheus", "uid": "" },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
       "gridPos": { "h": 8, "w": 8, "x": 8, "y": 6 },
       "id": 11,
       "title": "Dedup Hits vs New Articles (1h)",
       "type": "timeseries",
       "targets": [
-        { "expr": "sum(increase(ingestion_dedup_hits_total[1h]))", "legendFormat": "Duplicates skipped" },
-        { "expr": "sum(increase(ingestion_articles_queued_total[1h]))", "legendFormat": "New articles queued" },
-        { "expr": "sum(increase(ingestion_articles_filtered_total[1h]))", "legendFormat": "Filtered irrelevant" }
+        { "expr": "sum(increase(ingestion_dedup_hits_articles_total[1h]))", "legendFormat": "Duplicates skipped" },
+        { "expr": "sum(increase(ingestion_articles_queued_articles_total[1h]))", "legendFormat": "New articles queued" },
+        { "expr": "sum(increase(ingestion_articles_filtered_articles_total[1h]))", "legendFormat": "Filtered irrelevant" }
       ]
     },
     {
-      "datasource": { "type": "prometheus", "uid": "" },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "unit": "s", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
       "gridPos": { "h": 8, "w": 8, "x": 16, "y": 6 },
       "id": 12,
       "title": "Ingestion Cycle Duration",
       "type": "timeseries",
-      "targets": [{ "expr": "ingestion_cycle_duration_seconds", "legendFormat": "cycle duration" }]
+      "targets": [{ "expr": "histogram_quantile(0.95, rate(ingestion_cycle_duration_seconds_bucket[5m]))", "legendFormat": "p95 cycle duration" }]
     },
     {
       "collapsed": false,
@@ -130,7 +130,7 @@
       "type": "row"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "" },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "unit": "s", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
       "gridPos": { "h": 8, "w": 8, "x": 0, "y": 15 },
       "id": 20,
@@ -142,7 +142,7 @@
       ]
     },
     {
-      "datasource": { "type": "prometheus", "uid": "" },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 20, "stacking": { "mode": "normal" } } }, "overrides": [
         { "matcher": { "id": "byName", "options": "failure" }, "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }] },
         { "matcher": { "id": "byName", "options": "success" }, "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] }
@@ -152,11 +152,11 @@
       "title": "Analysis Success vs Failure",
       "type": "timeseries",
       "targets": [
-        { "expr": "sum by (result)(rate(analysis_total[5m]))", "legendFormat": "{{result}}" }
+        { "expr": "sum by (result)(rate(analysis_analyses_total[5m]))", "legendFormat": "{{result}}" }
       ]
     },
     {
-      "datasource": { "type": "prometheus", "uid": "" },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "unit": "s", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
       "gridPos": { "h": 8, "w": 8, "x": 16, "y": 15 },
       "id": 22,
@@ -168,14 +168,14 @@
       ]
     },
     {
-      "datasource": { "type": "prometheus", "uid": "" },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
       "gridPos": { "h": 8, "w": 24, "x": 0, "y": 23 },
       "id": 23,
       "title": "Analyses by Symbol (24h)",
       "type": "piechart",
       "options": { "legend": { "displayMode": "table", "placement": "right" }, "pieType": "donut" },
-      "targets": [{ "expr": "sum by (symbol)(increase(analysis_total[24h]))", "legendFormat": "{{symbol}}" }]
+      "targets": [{ "expr": "sum by (symbol)(increase(analysis_analyses_total[24h]))", "legendFormat": "{{symbol}}" }]
     },
     {
       "collapsed": false,
@@ -185,7 +185,7 @@
       "type": "row"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "" },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 10 }, "color": { "mode": "fixed", "fixedColor": "red" } }, "overrides": [] },
       "gridPos": { "h": 8, "w": 6, "x": 0, "y": 32 },
       "id": 30,
@@ -194,16 +194,16 @@
       "targets": [{ "expr": "rate(ollama_parse_failures_total[5m])", "legendFormat": "parse failures/s" }]
     },
     {
-      "datasource": { "type": "prometheus", "uid": "" },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 10 }, "color": { "mode": "fixed", "fixedColor": "orange" } }, "overrides": [] },
       "gridPos": { "h": 8, "w": 6, "x": 6, "y": 32 },
       "id": 31,
       "title": "Reddit 429 Rate Limits",
       "type": "timeseries",
-      "targets": [{ "expr": "rate(reddit_rate_limits_total[5m])", "legendFormat": "429s/s" }]
+      "targets": [{ "expr": "rate(reddit_rate_limits_events_total[5m])", "legendFormat": "429s/s" }]
     },
     {
-      "datasource": { "type": "prometheus", "uid": "" },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 10 }, "color": { "mode": "fixed", "fixedColor": "red" } }, "overrides": [] },
       "gridPos": { "h": 8, "w": 6, "x": 12, "y": 32 },
       "id": 32,
@@ -212,7 +212,7 @@
       "targets": [{ "expr": "sum by (symbol)(rate(ingestion_errors_total[5m]))", "legendFormat": "{{symbol}}" }]
     },
     {
-      "datasource": { "type": "prometheus", "uid": "" },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 10 }, "color": { "mode": "fixed", "fixedColor": "red" } }, "overrides": [] },
       "gridPos": { "h": 8, "w": 6, "x": 18, "y": 32 },
       "id": 33,
@@ -228,7 +228,7 @@
       "type": "row"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "" },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
       "gridPos": { "h": 8, "w": 6, "x": 0, "y": 41 },
       "id": 40,
@@ -237,29 +237,29 @@
       "targets": [{ "expr": "sum(kestrel_active_connections)", "legendFormat": "connections" }]
     },
     {
-      "datasource": { "type": "prometheus", "uid": "" },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
       "gridPos": { "h": 8, "w": 6, "x": 6, "y": 41 },
       "id": 41,
       "title": "Thread Pool Threads",
       "type": "timeseries",
-      "targets": [{ "expr": "process_runtime_dotnet_thread_pool_threads_count", "legendFormat": "threads" }]
+      "targets": [{ "expr": "dotnet_thread_pool_thread_count_total", "legendFormat": "threads" }]
     },
     {
-      "datasource": { "type": "prometheus", "uid": "" },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
       "gridPos": { "h": 8, "w": 6, "x": 12, "y": 41 },
       "id": 42,
       "title": "GC Collections",
       "type": "timeseries",
       "targets": [
-        { "expr": "rate(process_runtime_dotnet_gc_collections_total{gc_heap_generation=\"gen0\"}[5m])", "legendFormat": "Gen0" },
-        { "expr": "rate(process_runtime_dotnet_gc_collections_total{gc_heap_generation=\"gen1\"}[5m])", "legendFormat": "Gen1" },
-        { "expr": "rate(process_runtime_dotnet_gc_collections_total{gc_heap_generation=\"gen2\"}[5m])", "legendFormat": "Gen2" }
+        { "expr": "rate(dotnet_gc_collections_total{dotnet_gc_heap_generation=\"gen0\"}[5m])", "legendFormat": "Gen0" },
+        { "expr": "rate(dotnet_gc_collections_total{dotnet_gc_heap_generation=\"gen1\"}[5m])", "legendFormat": "Gen1" },
+        { "expr": "rate(dotnet_gc_collections_total{dotnet_gc_heap_generation=\"gen2\"}[5m])", "legendFormat": "Gen2" }
       ]
     },
     {
-      "datasource": { "type": "prometheus", "uid": "" },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
       "gridPos": { "h": 8, "w": 6, "x": 18, "y": 41 },
       "id": 43,
