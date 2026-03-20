@@ -87,9 +87,10 @@ public class SentimentController(ISender sender) : ControllerBase
     public async Task<IActionResult> GetStats(
         string symbol,
         [FromQuery] int days = 30,
+        [FromQuery] int halfLifeHours = 72,
         CancellationToken ct = default)
     {
-        var result = await sender.Send(new GetSentimentStatsQuery(symbol, days), ct);
+        var result = await sender.Send(new GetSentimentStatsQuery(symbol, days, halfLifeHours), ct);
         return Ok(result);
     }
 }

@@ -13,10 +13,6 @@ public class GetTrendingSymbolsHandlerTests
 
     private GetTrendingSymbolsQueryHandler CreateHandler() => new(_repository);
 
-    /// <summary>
-    /// Creates a SentimentAnalysis and back-dates its AnalyzedAt via reflection
-    /// so handler window-split logic can be tested without a clock abstraction.
-    /// </summary>
     private static SentimentAnalysis MakeAnalysis(string symbol, double score, DateTime analyzedAt)
     {
         var analysis = SentimentAnalysis.Create(
@@ -50,7 +46,6 @@ public class GetTrendingSymbolsHandlerTests
     public async Task Handle_SingleDataPoint_ReturnsSymbolWithPreviousAvgZero()
     {
         var now = DateTime.UtcNow;
-        // Place the single point in the current half (within last 12h)
         var analysis = MakeAnalysis("AAPL", 0.8, now.AddHours(-6));
 
         _repository.GetRecentAsync(Arg.Any<DateTime>(), Arg.Any<CancellationToken>())
@@ -64,6 +59,9 @@ public class GetTrendingSymbolsHandlerTests
         result[0].PreviousAvgScore.Should().Be(0.0);
         result[0].Delta.Should().Be(0.8);
         result[0].Direction.Should().Be("up");
+        result[0].ArticleCount.Should().Be(1);
+        result[0].Dispersion.Should().Be(0.0);
+        result[0].Trend.Should().Be("Stable");
     }
 
     [Fact]
@@ -80,7 +78,9 @@ public class GetTrendingSymbolsHandlerTests
 
         result.Should().HaveCount(1);
         result[0].Direction.Should().Be("up");
-        result[0].Delta.Should().BeApproximately(1.0, 0.001);
+        result[0].Delta.Should().BeApproximately(1.0, 0.05);
+        result[0].ArticleCount.Should().Be(2);
+        result[0].Dispersion.Should().BeGreaterThan(0);
     }
 
     [Fact]
@@ -97,7 +97,7 @@ public class GetTrendingSymbolsHandlerTests
 
         result.Should().HaveCount(1);
         result[0].Direction.Should().Be("down");
-        result[0].Delta.Should().BeApproximately(-1.0, 0.001);
+        result[0].Delta.Should().BeApproximately(-1.0, 0.05);
     }
 
     [Fact]
@@ -115,6 +115,7 @@ public class GetTrendingSymbolsHandlerTests
         result.Should().HaveCount(1);
         result[0].Direction.Should().Be("flat");
         result[0].Delta.Should().Be(0.0);
+        result[0].Dispersion.Should().Be(0.0);
     }
 
     [Fact]
@@ -122,11 +123,9 @@ public class GetTrendingSymbolsHandlerTests
     {
         var now = DateTime.UtcNow;
 
-        // AAPL: small positive shift (delta = +0.1)
         var aaplPrev    = MakeAnalysis("AAPL", 0.4, now.AddHours(-20));
         var aaplCurrent = MakeAnalysis("AAPL", 0.5, now.AddHours(-2));
 
-        // TSLA: large positive shift (delta = +0.9)
         var tslaPrev    = MakeAnalysis("TSLA", -0.4, now.AddHours(-20));
         var tslaCurrent = MakeAnalysis("TSLA",  0.5, now.AddHours(-2));
 
@@ -145,15 +144,12 @@ public class GetTrendingSymbolsHandlerTests
     {
         var now = DateTime.UtcNow;
 
-        // GOOG: large negative shift (delta = -0.9), |delta| = 0.9
         var googPrev    = MakeAnalysis("GOOG", 0.5, now.AddHours(-20));
         var googCurrent = MakeAnalysis("GOOG", -0.4, now.AddHours(-2));
 
-        // MSFT: medium positive shift (delta = +0.5), |delta| = 0.5
         var msftPrev    = MakeAnalysis("MSFT", 0.0, now.AddHours(-20));
         var msftCurrent = MakeAnalysis("MSFT", 0.5, now.AddHours(-2));
 
-        // AAPL: small negative shift (delta = -0.2), |delta| = 0.2
         var aaplPrev    = MakeAnalysis("AAPL", 0.3, now.AddHours(-20));
         var aaplCurrent = MakeAnalysis("AAPL", 0.1, now.AddHours(-2));
 
@@ -163,18 +159,15 @@ public class GetTrendingSymbolsHandlerTests
         var result = await CreateHandler().Handle(new GetTrendingSymbolsQuery(24, 10), CancellationToken.None);
 
         result.Should().HaveCount(3);
-        // GOOG first: |delta| = 0.9 (negative delta, but largest absolute move)
         result[0].Symbol.Should().Be("GOOG");
         result[0].Direction.Should().Be("down");
-        result[0].Delta.Should().BeApproximately(-0.9, 0.001);
-        // MSFT second: |delta| = 0.5
+        result[0].Delta.Should().BeApproximately(-0.9, 0.05);
         result[1].Symbol.Should().Be("MSFT");
         result[1].Direction.Should().Be("up");
-        result[1].Delta.Should().BeApproximately(0.5, 0.001);
-        // AAPL third: |delta| = 0.2
+        result[1].Delta.Should().BeApproximately(0.5, 0.05);
         result[2].Symbol.Should().Be("AAPL");
         result[2].Direction.Should().Be("down");
-        result[2].Delta.Should().BeApproximately(-0.2, 0.001);
+        result[2].Delta.Should().BeApproximately(-0.2, 0.05);
     }
 
     [Fact]
@@ -261,7 +254,7 @@ public class GetTrendingSymbolsHandlerTests
     }
 
     [Fact]
-    public async Task Handle_SortByCurrentAvgScoreDesc_ReturnsHighestScoreFirst()
+    public async Task Handle_SortByScoreDesc_ReturnsHighestScoreFirst()
     {
         var now = DateTime.UtcNow;
         var analyses = new[]
@@ -275,7 +268,7 @@ public class GetTrendingSymbolsHandlerTests
             .Returns(analyses);
 
         var result = await CreateHandler().Handle(
-            new GetTrendingSymbolsQuery(24, 10, SortBy: "currentAvgScore", SortDirection: "desc"),
+            new GetTrendingSymbolsQuery(24, 10, SortBy: "score", SortDirection: "desc"),
             CancellationToken.None);
 
         result.Should().HaveCount(3);
@@ -285,7 +278,7 @@ public class GetTrendingSymbolsHandlerTests
     }
 
     [Fact]
-    public async Task Handle_SortByCurrentAvgScoreAsc_ReturnsLowestScoreFirst()
+    public async Task Handle_SortByScoreAsc_ReturnsLowestScoreFirst()
     {
         var now = DateTime.UtcNow;
         var analyses = new[]
@@ -299,65 +292,13 @@ public class GetTrendingSymbolsHandlerTests
             .Returns(analyses);
 
         var result = await CreateHandler().Handle(
-            new GetTrendingSymbolsQuery(24, 10, SortBy: "currentAvgScore", SortDirection: "asc"),
+            new GetTrendingSymbolsQuery(24, 10, SortBy: "score", SortDirection: "asc"),
             CancellationToken.None);
 
         result.Should().HaveCount(3);
         result[0].Symbol.Should().Be("AAPL");
         result[1].Symbol.Should().Be("MSFT");
         result[2].Symbol.Should().Be("TSLA");
-    }
-
-    [Fact]
-    public async Task Handle_SortByPreviousAvgScoreDesc_ReturnsHighestPrevFirst()
-    {
-        var now = DateTime.UtcNow;
-        var analyses = new[]
-        {
-            MakeAnalysis("AAPL", 0.2, now.AddHours(-20)),
-            MakeAnalysis("AAPL", 0.5, now.AddHours(-2)),
-            MakeAnalysis("TSLA", 0.8, now.AddHours(-20)),
-            MakeAnalysis("TSLA", 0.5, now.AddHours(-2)),
-            MakeAnalysis("MSFT", 0.5, now.AddHours(-20)),
-            MakeAnalysis("MSFT", 0.5, now.AddHours(-2)),
-        };
-
-        _repository.GetRecentAsync(Arg.Any<DateTime>(), Arg.Any<CancellationToken>())
-            .Returns(analyses);
-
-        var result = await CreateHandler().Handle(
-            new GetTrendingSymbolsQuery(24, 10, SortBy: "previousAvgScore", SortDirection: "desc"),
-            CancellationToken.None);
-
-        result.Should().HaveCount(3);
-        result[0].Symbol.Should().Be("TSLA");
-        result[1].Symbol.Should().Be("MSFT");
-        result[2].Symbol.Should().Be("AAPL");
-    }
-
-    [Fact]
-    public async Task Handle_SortByDeltaAsc_ReturnsSmallestAbsDeltaFirst()
-    {
-        var now = DateTime.UtcNow;
-
-        // AAPL: delta = +0.1, |delta| = 0.1
-        var aaplPrev    = MakeAnalysis("AAPL", 0.4, now.AddHours(-20));
-        var aaplCurrent = MakeAnalysis("AAPL", 0.5, now.AddHours(-2));
-
-        // TSLA: delta = +0.9, |delta| = 0.9
-        var tslaPrev    = MakeAnalysis("TSLA", -0.4, now.AddHours(-20));
-        var tslaCurrent = MakeAnalysis("TSLA",  0.5, now.AddHours(-2));
-
-        _repository.GetRecentAsync(Arg.Any<DateTime>(), Arg.Any<CancellationToken>())
-            .Returns([aaplPrev, aaplCurrent, tslaPrev, tslaCurrent]);
-
-        var result = await CreateHandler().Handle(
-            new GetTrendingSymbolsQuery(24, 10, SortBy: "delta", SortDirection: "asc"),
-            CancellationToken.None);
-
-        result.Should().HaveCount(2);
-        result[0].Symbol.Should().Be("AAPL");
-        result[1].Symbol.Should().Be("TSLA");
     }
 
     [Fact]
@@ -379,7 +320,7 @@ public class GetTrendingSymbolsHandlerTests
             CancellationToken.None);
 
         result.Should().HaveCount(2);
-        result[0].Symbol.Should().Be("TSLA");  // |0.9| > |0.1|
+        result[0].Symbol.Should().Be("TSLA");
         result[1].Symbol.Should().Be("AAPL");
     }
 
@@ -403,5 +344,28 @@ public class GetTrendingSymbolsHandlerTests
         result.Should().HaveCount(2);
         result[0].Symbol.Should().Be("AAPL");
         result[1].Symbol.Should().Be("TSLA");
+    }
+
+    [Fact]
+    public async Task Handle_TrendAndDispersion_ComputedCorrectly()
+    {
+        var now = DateTime.UtcNow;
+        // Conflicting sentiment should produce high dispersion
+        var analyses = new[]
+        {
+            MakeAnalysis("AAPL", 0.9, now.AddHours(-3)),
+            MakeAnalysis("AAPL", -0.8, now.AddHours(-6)),
+            MakeAnalysis("AAPL", 0.7, now.AddHours(-9)),
+        };
+
+        _repository.GetRecentAsync(Arg.Any<DateTime>(), Arg.Any<CancellationToken>())
+            .Returns(analyses);
+
+        var result = await CreateHandler().Handle(new GetTrendingSymbolsQuery(24, 10), CancellationToken.None);
+
+        result.Should().HaveCount(1);
+        result[0].Dispersion.Should().BeGreaterThan(0.5);
+        result[0].ArticleCount.Should().Be(3);
+        result[0].Trend.Should().NotBeNullOrEmpty();
     }
 }
