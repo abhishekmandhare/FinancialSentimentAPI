@@ -43,7 +43,7 @@ public class GetWatchlistQueryHandler(
                 new StockSymbol(tracked.Symbol), scoringOptions.DefaultWindowDays, ct);
 
             var stats = SentimentMath.ComputeSymbolStats(
-                analyses, now, scoringOptions.DefaultWindowDays * 24, scoringOptions.HalfLifeHours);
+                analyses, now, scoringOptions.DefaultWindowDays * 24.0, scoringOptions.HalfLifeHours);
 
             results.Add(new WatchlistSymbolDto(
                 tracked.Symbol, tracked.AddedAt,

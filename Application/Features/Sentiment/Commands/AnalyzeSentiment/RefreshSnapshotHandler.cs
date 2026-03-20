@@ -31,7 +31,7 @@ public class RefreshSnapshotHandler(
                 new StockSymbol(symbol), config.DefaultWindowDays, ct);
 
             var stats = SentimentMath.ComputeSymbolStats(
-                analyses, now, config.DefaultWindowDays * 24, config.HalfLifeHours);
+                analyses, now, config.DefaultWindowDays * 24.0, config.HalfLifeHours);
 
             var existing = await snapshotRepository.GetBySymbolAsync(symbol, ct);
 
