@@ -9,8 +9,11 @@ namespace Domain.Interfaces;
 public interface ITrackedSymbolRepository
 {
     Task<IReadOnlyList<TrackedSymbol>> GetAllAsync(CancellationToken ct = default);
+    Task<IReadOnlyList<TrackedSymbol>> GetBySourceAsync(string source, CancellationToken ct = default);
+    Task<TrackedSymbol?> GetBySymbolAsync(string symbol, CancellationToken ct = default);
     Task<bool> ExistsAsync(string symbol, CancellationToken ct = default);
     Task AddAsync(TrackedSymbol symbol, CancellationToken ct = default);
+    Task UpdateAsync(TrackedSymbol symbol, CancellationToken ct = default);
 
     /// <summary>
     /// Removes a tracked symbol, if it exists.

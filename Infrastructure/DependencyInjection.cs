@@ -77,6 +77,13 @@ public static class DependencyInjection
                 break;
         }
 
+        // --- Symbol Validation ---
+        services.AddHttpClient<ISymbolValidationService, YahooSymbolValidationService>(client =>
+        {
+            client.DefaultRequestHeaders.UserAgent.ParseAdd(
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
+        });
+
         // --- Ingestion Pipeline ---
         services.Configure<IngestionOptions>(
             configuration.GetSection(IngestionOptions.SectionName));
