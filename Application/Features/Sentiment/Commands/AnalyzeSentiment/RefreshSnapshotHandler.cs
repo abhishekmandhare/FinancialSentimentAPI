@@ -1,3 +1,4 @@
+using Application.Configuration;
 using Domain.Entities;
 using Domain.Interfaces;
 using Domain.ValueObjects;
@@ -13,10 +14,10 @@ namespace Application.Features.Sentiment.Commands.AnalyzeSentiment;
 public class RefreshSnapshotHandler(
     ISentimentRepository sentimentRepository,
     ISymbolSnapshotRepository snapshotRepository,
+    SentimentScoringOptions scoringOptions,
     ILogger<RefreshSnapshotHandler> logger)
     : INotificationHandler<SentimentAnalysisCreatedNotification>
 {
-    private const int DataWindowDays = 7;
 
     public async Task Handle(SentimentAnalysisCreatedNotification notification, CancellationToken ct)
     {
@@ -25,10 +26,12 @@ public class RefreshSnapshotHandler(
             var symbol = notification.Symbol;
             var now = DateTime.UtcNow;
 
+            var config = scoringOptions;
             var analyses = await sentimentRepository.GetForStatsAsync(
-                new StockSymbol(symbol), DataWindowDays, ct);
+                new StockSymbol(symbol), config.DefaultWindowDays, ct);
 
-            var stats = SentimentMath.ComputeSymbolStats(analyses, now, DataWindowDays * 24);
+            var stats = SentimentMath.ComputeSymbolStats(
+                analyses, now, config.DefaultWindowDays * 24, config.HalfLifeHours);
 
             var existing = await snapshotRepository.GetBySymbolAsync(symbol, ct);
 

@@ -1,3 +1,4 @@
+using Application.Configuration;
 using Domain.Entities;
 using Domain.Interfaces;
 using MediatR;
@@ -6,7 +7,8 @@ namespace Application.Features.Sentiment.Queries.GetTrendingSymbols;
 
 public class GetTrendingSymbolsQueryHandler(
     ISentimentRepository repository,
-    ISymbolSnapshotRepository snapshotRepository)
+    ISymbolSnapshotRepository snapshotRepository,
+    SentimentScoringOptions scoringOptions)
     : IRequestHandler<GetTrendingSymbolsQuery, IReadOnlyList<TrendingSymbolDto>>
 {
     public async Task<IReadOnlyList<TrendingSymbolDto>> Handle(
@@ -44,8 +46,9 @@ public class GetTrendingSymbolsQueryHandler(
 
         var grouped = analyses.GroupBy(a => a.Symbol.Value);
 
+        var halfLife = scoringOptions.HalfLifeHours;
         var unordered = grouped
-            .Select(g => ComputeTrend(g.Key, g.ToList(), now, query.Hours));
+            .Select(g => ComputeTrend(g.Key, g.ToList(), now, query.Hours, halfLife));
 
         return ApplySort(unordered, query.SortBy, query.SortDirection)
             .Take(query.Limit)
@@ -77,9 +80,10 @@ public class GetTrendingSymbolsQueryHandler(
         string symbol,
         IReadOnlyList<SentimentAnalysis> analyses,
         DateTime now,
-        int windowHours = 7 * 24)
+        int windowHours,
+        int halfLifeHours)
     {
-        var stats = SentimentMath.ComputeSymbolStats(analyses, now, windowHours);
+        var stats = SentimentMath.ComputeSymbolStats(analyses, now, windowHours, halfLifeHours);
         return new TrendingSymbolDto(symbol, stats.Score, stats.PreviousScore,
             stats.Delta, stats.Direction, stats.Trend, stats.Dispersion, stats.ArticleCount);
     }

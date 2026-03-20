@@ -1,3 +1,4 @@
+using Application.Configuration;
 using Application.Features.Sentiment.Commands.AnalyzeSentiment;
 using Domain.Entities;
 using Domain.Interfaces;
@@ -14,7 +15,7 @@ public class RefreshSnapshotHandlerTests
     private readonly ISymbolSnapshotRepository _snapshotRepo = Substitute.For<ISymbolSnapshotRepository>();
 
     private RefreshSnapshotHandler CreateHandler() =>
-        new(_sentimentRepo, _snapshotRepo, NullLogger<RefreshSnapshotHandler>.Instance);
+        new(_sentimentRepo, _snapshotRepo, new SentimentScoringOptions(), NullLogger<RefreshSnapshotHandler>.Instance);
 
     private static SentimentAnalysis MakeAnalysis(string symbol, double score, DateTime analyzedAt)
     {

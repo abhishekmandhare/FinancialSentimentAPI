@@ -1,3 +1,4 @@
+using Application.Configuration;
 using Application.Exceptions;
 using Application.Features.Watchlist.Commands.AddToWatchlist;
 using Application.Features.Watchlist.Commands.RemoveFromWatchlist;
@@ -136,7 +137,7 @@ public class GetWatchlistHandlerTests
     private readonly ISentimentRepository _sentimentRepo = Substitute.For<ISentimentRepository>();
     private readonly ISymbolSnapshotRepository _snapshotRepo = Substitute.For<ISymbolSnapshotRepository>();
 
-    private GetWatchlistQueryHandler CreateHandler() => new(_trackedRepo, _sentimentRepo, _snapshotRepo);
+    private GetWatchlistQueryHandler CreateHandler() => new(_trackedRepo, _sentimentRepo, _snapshotRepo, new SentimentScoringOptions());
 
     [Fact]
     public async Task Handle_NoWatchlistSymbols_ReturnsEmpty()

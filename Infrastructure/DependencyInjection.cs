@@ -1,3 +1,4 @@
+using Application.Configuration;
 using Application.Services;
 using Domain.Interfaces;
 using Infrastructure.Ingestion;
@@ -27,6 +28,12 @@ public static class DependencyInjection
         services.AddScoped<ITrackedSymbolsProvider, DbTrackedSymbolsProvider>();
         services.AddScoped<ISymbolSnapshotRepository, SymbolSnapshotRepository>();
         services.AddScoped<ISystemStatsRepository, SystemStatsRepository>();
+
+        // --- Scoring Configuration ---
+        var scoringOptions = configuration
+            .GetSection(SentimentScoringOptions.SectionName)
+            .Get<SentimentScoringOptions>() ?? new SentimentScoringOptions();
+        services.AddSingleton(scoringOptions);
 
         // --- AI Service (switchable via config) ---
         var aiProvider = configuration["AI:Provider"] ?? "Mock";

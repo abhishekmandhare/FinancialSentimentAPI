@@ -1,3 +1,4 @@
+using Application.Configuration;
 using Application.Features.Sentiment;
 using Domain.Interfaces;
 using Domain.ValueObjects;
@@ -8,10 +9,10 @@ namespace Application.Features.Watchlist.Queries.GetWatchlist;
 public class GetWatchlistQueryHandler(
     ITrackedSymbolRepository trackedSymbolRepository,
     ISentimentRepository sentimentRepository,
-    ISymbolSnapshotRepository snapshotRepository)
+    ISymbolSnapshotRepository snapshotRepository,
+    SentimentScoringOptions scoringOptions)
     : IRequestHandler<GetWatchlistQuery, IReadOnlyList<WatchlistSymbolDto>>
 {
-    private const int DataWindowDays = 7;
 
     public async Task<IReadOnlyList<WatchlistSymbolDto>> Handle(
         GetWatchlistQuery request, CancellationToken ct)
@@ -39,9 +40,10 @@ public class GetWatchlistQueryHandler(
 
             // Fallback: compute on-the-fly (new symbol, no snapshot yet)
             var analyses = await sentimentRepository.GetForStatsAsync(
-                new StockSymbol(tracked.Symbol), DataWindowDays, ct);
+                new StockSymbol(tracked.Symbol), scoringOptions.DefaultWindowDays, ct);
 
-            var stats = SentimentMath.ComputeSymbolStats(analyses, now, DataWindowDays * 24);
+            var stats = SentimentMath.ComputeSymbolStats(
+                analyses, now, scoringOptions.DefaultWindowDays * 24, scoringOptions.HalfLifeHours);
 
             results.Add(new WatchlistSymbolDto(
                 tracked.Symbol, tracked.AddedAt,

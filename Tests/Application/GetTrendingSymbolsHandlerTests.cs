@@ -1,3 +1,4 @@
+using Application.Configuration;
 using Application.Features.Sentiment.Queries.GetTrendingSymbols;
 using Domain.Entities;
 using Domain.Interfaces;
@@ -19,7 +20,7 @@ public class GetTrendingSymbolsHandlerTests
             .Returns(new List<SymbolSnapshot>());
     }
 
-    private GetTrendingSymbolsQueryHandler CreateHandler() => new(_repository, _snapshotRepository);
+    private GetTrendingSymbolsQueryHandler CreateHandler() => new(_repository, _snapshotRepository, new SentimentScoringOptions());
 
     private static SentimentAnalysis MakeAnalysis(string symbol, double score, DateTime analyzedAt)
     {

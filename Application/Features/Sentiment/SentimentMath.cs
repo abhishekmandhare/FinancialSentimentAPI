@@ -8,7 +8,7 @@ namespace Application.Features.Sentiment;
 /// </summary>
 public static class SentimentMath
 {
-    public const int DefaultHalfLifeHours = 72;
+    public const int DefaultHalfLifeHours = 72; // fallback if no config injected
 
     public static double DecayWeightedAverage(
         IReadOnlyList<SentimentAnalysis> analyses,
@@ -69,15 +69,16 @@ public static class SentimentMath
     public static SymbolStats ComputeSymbolStats(
         IReadOnlyList<SentimentAnalysis> analyses,
         DateTime now,
-        double windowHours = 7 * 24)
+        double windowHours = 7 * 24,
+        int halfLifeHours = DefaultHalfLifeHours)
     {
         var midpoint = now.AddHours(-windowHours / 2.0);
 
         var current = analyses.Where(a => a.AnalyzedAt >= midpoint).ToList();
         var previous = analyses.Where(a => a.AnalyzedAt < midpoint).ToList();
 
-        var score = Math.Round(DecayWeightedAverage(current, now), 4);
-        var previousScore = Math.Round(DecayWeightedAverage(previous, midpoint), 4);
+        var score = Math.Round(DecayWeightedAverage(current, now, halfLifeHours), 4);
+        var previousScore = Math.Round(DecayWeightedAverage(previous, midpoint, halfLifeHours), 4);
         var delta = Math.Round(score - previousScore, 4);
 
         var direction = delta switch
@@ -88,7 +89,7 @@ public static class SentimentMath
         };
 
         var trend = CalculateTrendDirection(analyses);
-        var dispersion = CalculateDispersion(analyses, now);
+        var dispersion = CalculateDispersion(analyses, now, halfLifeHours);
 
         return new SymbolStats(score, previousScore, delta, direction, trend, dispersion, analyses.Count);
     }

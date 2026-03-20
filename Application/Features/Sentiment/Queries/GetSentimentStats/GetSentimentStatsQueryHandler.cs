@@ -1,3 +1,4 @@
+using Application.Configuration;
 using Application.Exceptions;
 using Domain.Enums;
 using Domain.Entities;
@@ -7,15 +8,15 @@ using MediatR;
 
 namespace Application.Features.Sentiment.Queries.GetSentimentStats;
 
-public class GetSentimentStatsQueryHandler(ISentimentRepository repository)
+public class GetSentimentStatsQueryHandler(
+    ISentimentRepository repository,
+    SentimentScoringOptions scoringOptions)
     : IRequestHandler<GetSentimentStatsQuery, SentimentStatsDto>
 {
-    private const int MaxDataAgeDays = 30;
-
     public async Task<SentimentStatsDto> Handle(GetSentimentStatsQuery query, CancellationToken ct)
     {
         var symbol = new StockSymbol(query.Symbol);
-        var days = Math.Min(query.Days, MaxDataAgeDays);
+        var days = Math.Min(query.Days, scoringOptions.MaxDataAgeDays);
 
         var analyses = await repository.GetForStatsAsync(symbol, days, ct);
 
@@ -24,7 +25,7 @@ public class GetSentimentStatsQueryHandler(ISentimentRepository repository)
 
         var now = DateTime.UtcNow;
         var from = now.AddDays(-days);
-        var halfLifeHours = query.HalfLifeHours;
+        var halfLifeHours = query.HalfLifeHours > 0 ? query.HalfLifeHours : scoringOptions.HalfLifeHours;
 
         // Compute time-decay weights for each analysis
         var weighted = analyses.Select(a =>
