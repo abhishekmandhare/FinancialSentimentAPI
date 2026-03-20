@@ -128,15 +128,15 @@ public class GetTrendingSymbolsHandlerTests
     }
 
     [Fact]
-    public async Task Handle_MultipleSymbols_OrderedByAbsoluteDeltaDescending()
+    public async Task Handle_MultipleSymbols_OrderedByScoreDescending()
     {
         var now = DateTime.UtcNow;
 
-        var aaplPrev    = MakeAnalysis("AAPL", 0.4, now.AddHours(-20));
-        var aaplCurrent = MakeAnalysis("AAPL", 0.5, now.AddHours(-2));
+        var aaplPrev    = MakeAnalysis("AAPL", 0.2, now.AddHours(-20));
+        var aaplCurrent = MakeAnalysis("AAPL", 0.3, now.AddHours(-2));
 
-        var tslaPrev    = MakeAnalysis("TSLA", -0.4, now.AddHours(-20));
-        var tslaCurrent = MakeAnalysis("TSLA",  0.5, now.AddHours(-2));
+        var tslaPrev    = MakeAnalysis("TSLA", 0.6, now.AddHours(-20));
+        var tslaCurrent = MakeAnalysis("TSLA", 0.8, now.AddHours(-2));
 
         _repository.GetRecentAsync(Arg.Any<DateTime>(), Arg.Any<CancellationToken>())
             .Returns([aaplPrev, aaplCurrent, tslaPrev, tslaCurrent]);
@@ -149,7 +149,7 @@ public class GetTrendingSymbolsHandlerTests
     }
 
     [Fact]
-    public async Task Handle_MixedPositiveAndNegativeDeltas_OrderedByAbsoluteDeltaDescending()
+    public async Task Handle_MixedScores_OrderedByScoreDescending()
     {
         var now = DateTime.UtcNow;
 
@@ -168,15 +168,10 @@ public class GetTrendingSymbolsHandlerTests
         var result = await CreateHandler().Handle(new GetTrendingSymbolsQuery(24, 10), CancellationToken.None);
 
         result.Should().HaveCount(3);
-        result[0].Symbol.Should().Be("GOOG");
-        result[0].Direction.Should().Be("down");
-        result[0].Delta.Should().BeApproximately(-0.9, 0.05);
-        result[1].Symbol.Should().Be("MSFT");
-        result[1].Direction.Should().Be("up");
-        result[1].Delta.Should().BeApproximately(0.5, 0.05);
-        result[2].Symbol.Should().Be("AAPL");
-        result[2].Direction.Should().Be("down");
-        result[2].Delta.Should().BeApproximately(-0.2, 0.05);
+        // Ordered by score desc: MSFT (0.5) > AAPL (0.1) > GOOG (-0.4)
+        result[0].Symbol.Should().Be("MSFT");
+        result[1].Symbol.Should().Be("AAPL");
+        result[2].Symbol.Should().Be("GOOG");
     }
 
     [Fact]
@@ -311,15 +306,15 @@ public class GetTrendingSymbolsHandlerTests
     }
 
     [Fact]
-    public async Task Handle_DefaultSortWithNullParams_SameAsAbsDeltaDesc()
+    public async Task Handle_DefaultSortWithNullParams_SameAsScoreDesc()
     {
         var now = DateTime.UtcNow;
 
-        var aaplPrev    = MakeAnalysis("AAPL", 0.4, now.AddHours(-20));
-        var aaplCurrent = MakeAnalysis("AAPL", 0.5, now.AddHours(-2));
+        var aaplPrev    = MakeAnalysis("AAPL", 0.2, now.AddHours(-20));
+        var aaplCurrent = MakeAnalysis("AAPL", 0.3, now.AddHours(-2));
 
-        var tslaPrev    = MakeAnalysis("TSLA", -0.4, now.AddHours(-20));
-        var tslaCurrent = MakeAnalysis("TSLA",  0.5, now.AddHours(-2));
+        var tslaPrev    = MakeAnalysis("TSLA", 0.6, now.AddHours(-20));
+        var tslaCurrent = MakeAnalysis("TSLA", 0.8, now.AddHours(-2));
 
         _repository.GetRecentAsync(Arg.Any<DateTime>(), Arg.Any<CancellationToken>())
             .Returns([aaplPrev, aaplCurrent, tslaPrev, tslaCurrent]);

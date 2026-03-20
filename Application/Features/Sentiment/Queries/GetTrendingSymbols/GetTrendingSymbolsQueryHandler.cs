@@ -48,7 +48,7 @@ public class GetTrendingSymbolsQueryHandler(
 
         var halfLife = scoringOptions.HalfLifeHours;
         var unordered = grouped
-            .Select(g => ComputeTrend(g.Key, g.ToList(), now, query.Hours, halfLife));
+            .Select(g => ToTrendingDto(g.Key, g.ToList(), now, query.Hours, halfLife));
 
         return ApplySort(unordered, query.SortBy, query.SortDirection)
             .Take(query.Limit)
@@ -68,7 +68,7 @@ public class GetTrendingSymbolsQueryHandler(
             "score"      => t => t.CurrentAvgScore,
             "dispersion" => t => t.Dispersion,
             "articles"   => t => t.ArticleCount,
-            _            => t => Math.Abs(t.Delta)
+            _            => t => t.CurrentAvgScore
         };
 
         return descending
@@ -76,7 +76,7 @@ public class GetTrendingSymbolsQueryHandler(
             : items.OrderBy(keySelector);
     }
 
-    private static TrendingSymbolDto ComputeTrend(
+    private static TrendingSymbolDto ToTrendingDto(
         string symbol,
         IReadOnlyList<SentimentAnalysis> analyses,
         DateTime now,
