@@ -143,12 +143,12 @@ The GHCR image is built automatically by GitHub Actions on pushes to `main`.
 
 ## FinBERT Setup
 
-FinBERT is a locally built Docker image running as a separate TrueNAS custom app with GPU access.
+FinBERT is a locally built Docker image running as a separate TrueNAS custom app with GPU access. The compose file is saved in the repo as `finbert-compose.yml`.
 
 ```yaml
 services:
   finbert:
-    image: finbert-api:latest
+    image: ghcr.io/abhishekmandhare/finbert-api:latest
     ports:
       - "3400:8000"
     deploy:
@@ -160,14 +160,24 @@ services:
               capabilities: [gpu]
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\""]
       interval: 30s
       timeout: 10s
       retries: 5
       start_period: 120s
 ```
 
-**Note:** FinBERT takes ~2 minutes to start as it loads the transformer model weights.
+To register as a TrueNAS custom app:
+```bash
+COMPOSE_YAML=$(cat finbert-compose.yml | python3 -c 'import sys,json; print(json.dumps(sys.stdin.read()))')
+sudo midclt call -j app.create "{\"custom_app\": true, \"app_name\": \"finbert\", \"custom_compose_config_string\": $COMPOSE_YAML}"
+```
+
+**Notes:**
+- FinBERT takes ~2 minutes to start as it loads the transformer model weights
+- The healthcheck uses Python's `urllib` instead of `curl` since `curl` is not installed in the container
+- The image is built by GitHub Actions and pushed to `ghcr.io/abhishekmandhare/finbert-api:latest` (only when `finbert/` changes)
+- Source code is in the `finbert/` directory of this repo
 
 ## Persistent Storage
 
