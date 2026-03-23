@@ -8,7 +8,8 @@
 set -euo pipefail
 
 HOST="truenas_admin@server.home"
-APP_DIR="/mnt/immich-pool/apps/financial-sentiment-api"
+APP_DIR="/mnt/ssd-pool/apps/financial-sentiment-api"
+APP_NAME="financial-sentiment-api"
 
 # Sync compose files, Prometheus config, and Grafana provisioning to TrueNAS
 echo "Syncing config files..."
@@ -16,21 +17,21 @@ scp docker-compose.yml prometheus.yml tempo.yml "$HOST:/tmp/"
 ssh "$HOST" "rm -rf /tmp/grafana && mkdir -p /tmp/grafana" && scp -r grafana/* "$HOST:/tmp/grafana/"
 ssh -t "$HOST" "sudo mv /tmp/docker-compose.yml /tmp/prometheus.yml /tmp/tempo.yml $APP_DIR/ && sudo rm -rf $APP_DIR/grafana && sudo mv /tmp/grafana $APP_DIR/"
 
-echo "Resetting Grafana volume for clean provisioning..."
-ssh -t "$HOST" "cd $APP_DIR && sudo docker rm -f \$(sudo docker compose ps -q grafana) 2>/dev/null; sudo docker volume rm \$(sudo docker volume ls -q | grep grafana_data) 2>/dev/null; true"
+echo "Updating TrueNAS custom app compose config..."
+ssh -t "$HOST" "COMPOSE_YAML=\$(cat $APP_DIR/docker-compose.yml | python3 -c 'import sys,json; print(json.dumps(sys.stdin.read()))') && sudo midclt call -j app.update '$APP_NAME' \"{\\\"custom_compose_config_string\\\": \$COMPOSE_YAML}\""
 
-echo "Pulling latest image and starting all services..."
-ssh -t "$HOST" "cd $APP_DIR && sudo docker compose pull api && sudo docker compose up -d"
+echo "Restarting app..."
+ssh -t "$HOST" "sudo midclt call -j app.stop '$APP_NAME' && sudo midclt call -j app.start '$APP_NAME'"
 
 echo "Deployed. Checking health..."
-sleep 5
-curl -sf http://server.home:8080/health/live && echo " — API is healthy" || echo " — API not responding yet, check logs"
+sleep 10
+curl -sf http://server.home:3100/health/live && echo " — API is healthy" || echo " — API not responding yet, check logs"
 
 # Print deployed image version
 echo ""
 echo "Deployed version:"
-ssh -t "$HOST" "cd $APP_DIR && sudo sh -c 'CID=\$(docker compose ps -q api) && docker inspect --format=\"Image: {{.Config.Image}}  Created: {{.Created}}\" \$CID'" || echo "(could not read container info)"
+ssh -t "$HOST" "sudo docker inspect --format='Image: {{.Config.Image}}  Created: {{.Created}}' \$(sudo docker ps -qf name=ix-financial-sentiment-api.*api)" || echo "(could not read container info)"
 
 if [[ "${1:-}" == "logs" ]]; then
-  ssh -t "$HOST" "cd $APP_DIR && sudo docker compose logs -f --tail 50 api"
+  ssh -t "$HOST" "sudo docker logs -f --tail 50 \$(sudo docker ps -qf name=ix-financial-sentiment-api.*api)"
 fi
