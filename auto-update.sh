@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # auto-update.sh — Pull latest images and restart TrueNAS-managed app if changed
-# Set up as a cron job on TrueNAS: */5 * * * *
+# Set up as a cron job on TrueNAS: 0 3 * * * (daily at 3 AM)
 set -euo pipefail
 
 APP_NAME="financial-sentiment-api"
