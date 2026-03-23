@@ -1,316 +1,225 @@
 # TrueNAS Deployment Guide
 
-This guide covers three ways to deploy the Financial Sentiment API on TrueNAS SCALE so that it appears in the **Applications** section with start/stop controls and resource monitoring.
+Deploy the Financial Sentiment API stack on TrueNAS SCALE as a managed custom app with auto-updates.
 
 ## Prerequisites
 
 - TrueNAS SCALE Dragonfish (24.04) or later
-- A dedicated dataset for app data (e.g., `pool/apps/financial-sentiment-api`)
-- Network access to GHCR (`ghcr.io`) for pulling the container image
-- (Optional) Ollama instance for AI sentiment analysis
+- A dataset for app data (e.g., `ssd-pool/apps/financial-sentiment-api`)
+- Network access to GHCR (`ghcr.io`)
+- SSH access as `truenas_admin`
 
-## Option 1: Docker Compose via TrueNAS (Recommended)
+## Architecture
 
-TrueNAS SCALE Dragonfish and later support Docker Compose natively. Apps deployed this way appear in the Applications section with full start/stop/restart controls.
+The stack runs as a TrueNAS custom app with 5 containers:
 
-### 1. Create a dataset for the app
+| Service | Image | Host Port | Purpose |
+|---------|-------|-----------|---------|
+| api | `ghcr.io/abhishekmandhare/financial-sentiment-api:latest` | 3100 | Main API |
+| db | `postgres:17-alpine` | — | Database |
+| prometheus | `prom/prometheus:latest` | 3200 | Metrics |
+| tempo | `grafana/tempo:2.7.0` | — | Tracing |
+| grafana | `grafana/grafana:latest` | 3300 | Dashboards |
 
-In the TrueNAS UI, go to **Storage > Datasets** and create:
+FinBERT runs as a separate TrueNAS custom app:
 
-```
-pool/apps/financial-sentiment-api
-```
+| Service | Image | Host Port | Purpose |
+|---------|-------|-----------|---------|
+| finbert | `finbert-api:latest` (local) | 3400 | Sentiment model (GPU) |
 
-### 2. Copy project files to the dataset
+## Initial Setup
 
-SSH into your TrueNAS server and copy the compose file:
+### 1. Copy project files to TrueNAS
 
 ```bash
-APP_DIR="/mnt/pool/apps/financial-sentiment-api"
-mkdir -p "$APP_DIR"
+APP_DIR="/mnt/ssd-pool/apps/financial-sentiment-api"
+sudo mkdir -p "$APP_DIR"
 ```
 
-Create `docker-compose.yml` in that directory:
+Copy the following files to `$APP_DIR`:
+- `docker-compose.yml`
+- `prometheus.yml`
+- `tempo.yml`
+- `grafana/` directory (provisioning + dashboards)
+- `auto-update.sh`
 
-```yaml
-services:
-
-  api:
-    image: ghcr.io/abhishekmandhare/financial-sentiment-api:latest
-    ports:
-      - "8080:8080"
-    environment:
-      ASPNETCORE_ENVIRONMENT: Production
-      ConnectionStrings__DefaultConnection: >-
-        Host=db;Database=sentiment;Username=sentiment;Password=${DB_PASSWORD}
-      AI__Provider: ${AI_PROVIDER:-Mock}
-      Anthropic__ApiKey: ${ANTHROPIC_API_KEY:-}
-      Anthropic__Model: claude-haiku-4-5-20251001
-      Anthropic__MaxTokens: 512
-      Ollama__BaseUrl: ${OLLAMA_BASE_URL:-}
-      Ollama__Model: ${OLLAMA_MODEL:-llama3}
-      Ollama__MaxTokens: ${OLLAMA_MAX_TOKENS:-512}
-      Ingestion__TrackedSymbols__0: AAPL
-      Ingestion__TrackedSymbols__1: MSFT
-      Ingestion__TrackedSymbols__2: GOOGL
-      Ingestion__TrackedSymbols__3: TSLA
-      Ingestion__TrackedSymbols__4: NVDA
-      Ingestion__TrackedSymbols__5: AMZN
-      Ingestion__TrackedSymbols__6: META
-      Ingestion__TrackedSymbols__7: NFLX
-      Ingestion__TrackedSymbols__8: AMD
-      Ingestion__TrackedSymbols__9: INTC
-      Ingestion__TrackedSymbols__10: JPM
-      Ingestion__TrackedSymbols__11: BAC
-      Ingestion__TrackedSymbols__12: SPY
-      Ingestion__TrackedSymbols__13: QQQ
-      Ingestion__TrackedSymbols__14: BTC-USD
-      Ingestion__PollingIntervalMinutes: 5
-      Ingestion__MaxConcurrentAnalyses: 3
-    depends_on:
-      db:
-        condition: service_healthy
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8080/health/live || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-
-  db:
-    image: postgres:17-alpine
-    environment:
-      POSTGRES_DB: sentiment
-      POSTGRES_USER: sentiment
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U sentiment -d sentiment"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-volumes:
-  postgres_data:
+Or use the deploy script from your dev machine:
+```bash
+./deploy.sh
 ```
 
-### 3. Create the `.env` file
+### 2. Create the `.env` file on TrueNAS
 
 ```bash
 cat > "$APP_DIR/.env" <<'EOF'
 DB_PASSWORD=<your-secure-password>
-AI_PROVIDER=Ollama
-OLLAMA_BASE_URL=http://server.home:30068
-OLLAMA_MODEL=llama3
-OLLAMA_MAX_TOKENS=512
+AI_PROVIDER=FinBert
+FINBERT_BASE_URL=http://192.168.1.179:3400
+FINBERT_TIMEOUT=30
+API_PORT=3100
+PROMETHEUS_PORT=3200
+GRAFANA_PORT=3300
 EOF
 ```
 
-Available `AI_PROVIDER` values:
-| Value | Description | Required variables |
-|-------|-------------|--------------------|
-| `Mock` | Returns dummy sentiment (no AI calls) | None |
-| `Ollama` | Self-hosted LLM via Ollama | `OLLAMA_BASE_URL` |
-| `Anthropic` | Anthropic Claude API | `ANTHROPIC_API_KEY` |
+### 3. Register as a TrueNAS custom app
 
-### 4. Register with TrueNAS
+The compose file uses `./` relative paths for config files, but TrueNAS custom apps need absolute paths. The `deploy.sh` script handles this automatically via the `midclt` API.
 
-In the TrueNAS UI:
+To register manually:
+```bash
+# Convert compose to JSON and create the app
+COMPOSE_YAML=$(cat $APP_DIR/docker-compose.yml | python3 -c 'import sys,json; print(json.dumps(sys.stdin.read()))')
+sudo midclt call -j app.create "{\"custom_app\": true, \"app_name\": \"financial-sentiment-api\", \"custom_compose_config_string\": $COMPOSE_YAML}"
+```
 
-1. Go to **Apps > Discover Apps > Custom App** (or **Apps > Manage Docker Compose** on Dragonfish+)
-2. Set the compose file path to `/mnt/pool/apps/financial-sentiment-api/docker-compose.yml`
-3. Save and start the app
+**Note:** When using `midclt`, replace `./` paths with absolute paths (e.g., `./prometheus.yml` → `/mnt/ssd-pool/apps/financial-sentiment-api/prometheus.yml`) in the compose config.
 
-The app now appears in the Applications list with start/stop/restart controls.
-
-### 5. Verify
+### 4. Verify
 
 ```bash
-curl http://<truenas-ip>:8080/health/live
+curl http://<truenas-ip>:3100/health/live
 # Expected: Healthy
 
-curl http://<truenas-ip>:8080/health/ready
+curl http://<truenas-ip>:3100/health/ready
 # Expected: Healthy (once DB migration completes)
 ```
 
----
+## AI Provider Configuration
 
-## Option 2: TrueNAS Custom App (UI-Only)
+| Provider | `AI_PROVIDER` | Required variables |
+|----------|---------------|--------------------|
+| Mock | `Mock` | None |
+| FinBERT | `FinBert` | `FINBERT_BASE_URL` |
+| Ollama | `Ollama` | `OLLAMA_BASE_URL`, `OLLAMA_MODEL` |
+| Anthropic | `Anthropic` | `ANTHROPIC_API_KEY` |
 
-Use this if you prefer configuring everything through the TrueNAS web UI without SSH.
+## Port Configuration
 
-### 1. Add the API container
+Ports are configurable via environment variables with these defaults:
 
-1. Go to **Apps > Discover Apps > Custom App**
-2. Fill in:
-   - **Application Name**: `financial-sentiment-api`
-   - **Image Repository**: `ghcr.io/abhishekmandhare/financial-sentiment-api`
-   - **Image Tag**: `latest`
-
-### 2. Configure port mapping
-
-| Container Port | Host Port | Protocol |
-|---------------|-----------|----------|
-| 8080 | 8080 | TCP |
-
-### 3. Set environment variables
-
-Add the following environment variables in the UI:
-
-| Variable | Value |
-|----------|-------|
-| `ASPNETCORE_ENVIRONMENT` | `Production` |
-| `ConnectionStrings__DefaultConnection` | `Host=<postgres-host>;Database=sentiment;Username=sentiment;Password=<password>` |
-| `AI__Provider` | `Ollama` |
-| `Ollama__BaseUrl` | `http://server.home:30068` |
-| `Ollama__Model` | `llama3` |
-
-For this option, you need a separate Postgres instance. You can either:
-- Install the **PostgreSQL** app from the TrueNAS app catalog
-- Use an existing Postgres server on your network
-
-Set `<postgres-host>` to the IP/hostname of your Postgres instance.
-
-### 4. Configure storage
-
-No persistent storage is needed for the API container itself (it is stateless). Postgres data persistence is handled by whichever Postgres deployment you chose above.
-
----
-
-## Option 3: Custom TrueNAS App Catalog
-
-For a native TrueNAS app experience with a configuration UI, you can create a custom catalog. This is more effort but provides the best integration.
-
-This approach requires creating a Helm chart or ix-chart manifest. See the [TrueNAS custom app catalog documentation](https://www.truenas.com/docs/scale/scaletutorials/apps/usingcustomapp/) for details. The Docker Compose option (Option 1) is recommended for most users.
-
----
-
-## Persistent Storage for Postgres
-
-Regardless of which option you choose, Postgres data must survive container restarts.
-
-**Option 1 (Docker Compose)**: The `postgres_data` named volume in the compose file handles this automatically. Docker stores it under `/var/lib/docker/volumes/` on the TrueNAS host.
-
-For explicit dataset mapping, replace the named volume with a bind mount to a TrueNAS dataset:
-
-```yaml
-  db:
-    volumes:
-      - /mnt/pool/apps/financial-sentiment-api/pgdata:/var/lib/postgresql/data
-```
-
-Make sure the directory exists and has correct permissions:
-
-```bash
-mkdir -p /mnt/pool/apps/financial-sentiment-api/pgdata
-chown 70:70 /mnt/pool/apps/financial-sentiment-api/pgdata
-```
-
-UID 70 is the `postgres` user inside the `postgres:17-alpine` image.
-
----
-
-## Health Check Endpoints
-
-The API exposes two health check endpoints:
-
-| Endpoint | Purpose |
-|----------|---------|
-| `/health/live` | Liveness probe -- confirms the process is running |
-| `/health/ready` | Readiness probe -- confirms the app can serve requests (DB connected) |
-
-Use `/health/live` for container health checks (already configured in the compose file). Use `/health/ready` for load balancer or monitoring checks.
-
----
+| Variable | Default | Service |
+|----------|---------|---------|
+| `API_PORT` | 3100 | API |
+| `PROMETHEUS_PORT` | 3200 | Prometheus |
+| `GRAFANA_PORT` | 3300 | Grafana |
 
 ## Updating the Container Image
 
-### Automated (via deploy script)
+### Automatic (daily cron)
+
+A cron job on TrueNAS runs `auto-update.sh` daily at 3 AM. It compares the running image digest against the latest on GHCR and restarts the app only if a new image is available.
+
+To set up the cron job:
+```bash
+sudo midclt call cronjob.create '{
+  "user": "root",
+  "command": "/usr/bin/bash /mnt/ssd-pool/apps/financial-sentiment-api/auto-update.sh >> /var/log/fsa-auto-update.log 2>&1",
+  "description": "Auto-update Financial Sentiment API",
+  "schedule": {"minute": "0", "hour": "3", "dom": "*", "month": "*", "dow": "*"},
+  "enabled": true
+}'
+```
+
+Check logs: `cat /var/log/fsa-auto-update.log`
+
+### Manual (via deploy script)
 
 From your development machine:
-
 ```bash
-./deploy.sh        # pulls latest image and restarts
-./deploy.sh logs   # same, then tails logs
+./deploy.sh        # syncs config, pulls latest image, restarts via midclt
+./deploy.sh logs   # same, then tails API logs
 ```
 
 ### Manual (via SSH)
 
 ```bash
-cd /mnt/pool/apps/financial-sentiment-api
-sudo docker compose pull api
-sudo docker compose up -d api
+sudo docker pull ghcr.io/abhishekmandhare/financial-sentiment-api:latest
+sudo midclt call -j app.stop 'financial-sentiment-api'
+sudo midclt call -j app.start 'financial-sentiment-api'
 ```
 
-### Via TrueNAS UI
+The GHCR image is built automatically by GitHub Actions on pushes to `main`.
 
-If using the Custom App option, go to **Apps > financial-sentiment-api > Edit** and change the image tag, or click **Update** if TrueNAS detects a newer `latest` tag.
+## FinBERT Setup
 
-The GHCR image is built automatically by GitHub Actions on pushes to `main`:
+FinBERT is a locally built Docker image running as a separate TrueNAS custom app with GPU access. The compose file is saved in the repo as `finbert-compose.yml`.
+
+```yaml
+services:
+  finbert:
+    image: ghcr.io/abhishekmandhare/finbert-api:latest
+    ports:
+      - "3400:8000"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\""]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
 ```
-ghcr.io/abhishekmandhare/financial-sentiment-api:latest
+
+To register as a TrueNAS custom app:
+```bash
+COMPOSE_YAML=$(cat finbert-compose.yml | python3 -c 'import sys,json; print(json.dumps(sys.stdin.read()))')
+sudo midclt call -j app.create "{\"custom_app\": true, \"app_name\": \"finbert\", \"custom_compose_config_string\": $COMPOSE_YAML}"
 ```
 
----
+**Notes:**
+- FinBERT takes ~2 minutes to start as it loads the transformer model weights
+- The healthcheck uses Python's `urllib` instead of `curl` since `curl` is not installed in the container
+- The image is built by GitHub Actions and pushed to `ghcr.io/abhishekmandhare/finbert-api:latest` (only when `finbert/` changes)
+- Source code is in the `finbert/` directory of this repo
+
+## Persistent Storage
+
+Postgres data is stored in a Docker named volume managed by TrueNAS at:
+```
+/mnt/.ix-apps/docker/volumes/ix-financial-sentiment-api_postgres_data/_data
+```
+
+Grafana, Prometheus, and Tempo data are similarly stored in named volumes under `/mnt/.ix-apps/docker/volumes/`.
 
 ## Troubleshooting
 
 ### API container exits immediately
 
-Check logs for connection string or configuration errors:
-
 ```bash
-sudo docker compose logs api --tail 50
+sudo docker logs $(sudo docker ps -aqf name=ix-financial-sentiment-api.*api) --tail 50
 ```
 
 Common causes:
-- Missing or incorrect `DB_PASSWORD` in `.env`
-- Postgres container not healthy yet (the API waits for the `service_healthy` condition)
+- Missing or incorrect `DB_PASSWORD`
+- Postgres container not healthy yet
+- FinBERT not reachable (if `AI_PROVIDER=FinBert`)
 
-### Database connection refused
+### FinBERT not responding
 
-- Verify Postgres is running: `sudo docker compose ps db`
-- Check Postgres health: `sudo docker compose exec db pg_isready -U sentiment`
-- Ensure the connection string uses `Host=db` (the Docker Compose service name), not `localhost`
+- FinBERT takes ~2 minutes to load the model on startup
+- Verify GPU access: `curl http://<truenas-ip>:3400/health` should show `"gpu": true`
+- Check logs: `sudo docker logs $(sudo docker ps -qf name=ix-finbert)`
 
-### Ollama sentiment analysis times out
+### Port conflicts
 
-- Verify Ollama is reachable from TrueNAS: `curl http://server.home:30068/api/tags`
-- The first request may take longer as the model loads into memory
-- Check that `OLLAMA_BASE_URL` does not have a trailing slash
+If ports 3100/3200/3300 are in use, change them in the `.env` file and redeploy.
 
-### Port 8080 already in use
+### Health check endpoints
 
-Another app or service is using port 8080. Change the host port mapping:
+| Endpoint | Purpose |
+|----------|---------|
+| `/health/live` | Liveness probe — process is running |
+| `/health/ready` | Readiness probe — DB connected, ready to serve |
 
-```yaml
-    ports:
-      - "9090:8080"  # access via port 9090 instead
-```
+### Auto-update not working
 
-### Health check failing
-
-```bash
-# Test from inside the container
-sudo docker compose exec api curl -f http://localhost:8080/health/live
-
-# Test from the host
-curl -f http://localhost:8080/health/live
-```
-
-If the liveness probe passes but readiness fails, the database connection is likely the issue. Check the `ConnectionStrings__DefaultConnection` environment variable.
-
-### Checking API version
-
-```bash
-curl http://<truenas-ip>:8080/health/live
-```
-
-### Viewing tracked symbols and ingestion status
-
-```bash
-curl http://<truenas-ip>:8080/api/sentiments/trending
-```
+- Check cron exists: `sudo midclt call cronjob.query`
+- Check logs: `cat /var/log/fsa-auto-update.log`
+- Test manually: `sudo bash /mnt/ssd-pool/apps/financial-sentiment-api/auto-update.sh`
