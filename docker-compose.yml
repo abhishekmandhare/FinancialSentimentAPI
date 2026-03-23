@@ -5,8 +5,6 @@ services:
       context: .
       dockerfile: Dockerfile
     image: ghcr.io/abhishekmandhare/financial-sentiment-api:latest
-    labels:
-      com.centurylinklabs.watchtower.enable: "true"
     ports:
       - "${API_PORT:-3100}:8080"
     environment:
@@ -52,8 +50,6 @@ services:
 
   db:
     image: postgres:17-alpine
-    labels:
-      com.centurylinklabs.watchtower.enable: "false"
     environment:
       POSTGRES_DB: sentiment
       POSTGRES_USER: sentiment
@@ -69,8 +65,6 @@ services:
 
   prometheus:
     image: prom/prometheus:latest
-    labels:
-      com.centurylinklabs.watchtower.enable: "true"
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
       - "--storage.tsdb.retention.time=90d"
@@ -86,8 +80,6 @@ services:
 
   tempo:
     image: grafana/tempo:2.7.0
-    labels:
-      com.centurylinklabs.watchtower.enable: "true"
     command: ["-config.file=/etc/tempo/tempo.yml"]
     volumes:
       - ./tempo.yml:/etc/tempo/tempo.yml:ro
@@ -96,8 +88,6 @@ services:
 
   grafana:
     image: grafana/grafana:latest
-    labels:
-      com.centurylinklabs.watchtower.enable: "true"
     ports:
       - "${GRAFANA_PORT:-3300}:3000"
     environment:
