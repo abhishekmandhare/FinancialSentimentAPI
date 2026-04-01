@@ -133,6 +133,7 @@ public static class DependencyInjection
         });
 
         services.AddHostedService<SymbolSeedingWorker>();
+        services.AddHostedService<SnapshotBackfillWorker>();
         services.AddHostedService<SentimentIngestionWorker>();
         services.AddHostedService<SentimentAnalysisWorker>();
 
