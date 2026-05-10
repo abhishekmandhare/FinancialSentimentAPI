@@ -1,6 +1,7 @@
 FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04
 
-RUN apt-get update && apt-get install -y python3 python3-pip && rm -rf /var/lib/apt/lists/*
+# tini reaps zombie children — Python subprocesses and uvicorn workers exit cleanly
+RUN apt-get update && apt-get install -y python3 python3-pip tini && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -14,4 +15,5 @@ RUN python3 -c "from transformers import AutoTokenizer, AutoModelForSequenceClas
 
 EXPOSE 8000
 
+ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
